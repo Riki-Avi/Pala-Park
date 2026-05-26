@@ -13,6 +13,7 @@ type GameSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 export class ClientSocket {
   private readonly socket: GameSocket;
   private readonly clientId = getOrCreateClientId();
+  private readonly serverUrl: string;
   private readonly sessionHandlers: Array<(session: RoomJoinedPayload) => void> = [];
   private readonly playersHandlers: Array<(players: RoomPlayer[]) => void> = [];
   private readonly poseHandlers: Array<(pose: PlayerPose) => void> = [];
@@ -20,17 +21,16 @@ export class ClientSocket {
   private readonly statusHandlers: Array<(message: string) => void> = [];
 
   constructor() {
-    const serverUrl =
-      import.meta.env.VITE_SERVER_URL ?? `${window.location.protocol}//${window.location.hostname}:3000`;
+    this.serverUrl = import.meta.env.VITE_SERVER_URL ?? `${window.location.protocol}//${window.location.hostname}:3000`;
 
-    this.socket = io(serverUrl, {
+    this.socket = io(this.serverUrl, {
       autoConnect: true,
       transports: ["websocket", "polling"]
     });
 
-    this.socket.on("connect", () => this.emitStatus("Servidor conectado"));
+    this.socket.on("connect", () => this.emitStatus(`Servidor conectado: ${this.serverUrl}`));
     this.socket.on("disconnect", () => this.emitStatus("Servidor desconectado"));
-    this.socket.on("connect_error", () => this.emitStatus("No se pudo conectar al servidor"));
+    this.socket.on("connect_error", () => this.emitStatus(`No se pudo conectar a ${this.serverUrl}`));
     this.socket.on("errorMessage", ({ message }) => this.emitStatus(message));
 
     this.socket.on("roomCreated", (session) => this.handleSession(session));
@@ -63,6 +63,10 @@ export class ClientSocket {
 
   requestReset(reason: "fall" | "manual"): void {
     this.socket.emit("resetLevel", { reason });
+  }
+
+  getServerUrl(): string {
+    return this.serverUrl;
   }
 
   onSession(handler: (session: RoomJoinedPayload) => void): void {
@@ -103,7 +107,15 @@ function getOrCreateClientId(): string {
     return existing;
   }
 
-  const id = crypto.randomUUID();
+  const id = createClientId();
   window.localStorage.setItem(key, id);
   return id;
+}
+
+function createClientId(): string {
+  if (globalThis.crypto?.randomUUID) {
+    return globalThis.crypto.randomUUID();
+  }
+
+  return `client-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }

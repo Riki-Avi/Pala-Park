@@ -115,9 +115,25 @@ body,
   text-transform: uppercase;
 }
 
-#network-status {
+#network-status,
+#server-target {
   color: #c9d0df;
   font-size: 0.82rem;
+}
+
+.network-info {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+#server-target {
+  overflow: hidden;
+  max-width: 260px;
+  color: #8f9aad;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .controls span,

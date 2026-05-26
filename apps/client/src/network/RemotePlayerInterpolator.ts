@@ -2,6 +2,8 @@ import type { PlayerPose } from "@game/shared";
 import type { Player } from "../entities/Player";
 import { RemotePoseBuffer } from "./RemotePoseBuffer";
 
+const REMOTE_POSE_SMOOTHING = 0.5;
+
 export class RemotePlayerInterpolator {
   private readonly buffers = new Map<string, RemotePoseBuffer>();
 
@@ -31,7 +33,7 @@ export class RemotePlayerInterpolator {
       }
 
       const player = players[playerIndexFromId(playerId)];
-      player?.applyNetworkPose(pose);
+      player?.applyNetworkPose(pose, REMOTE_POSE_SMOOTHING);
     }
   }
 }

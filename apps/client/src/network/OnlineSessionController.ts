@@ -13,6 +13,7 @@ export class OnlineSessionController {
   private session: RoomJoinedPayload | null = null;
   private readonly remotePlayerInterpolator = new RemotePlayerInterpolator();
   private pendingReset = false;
+  private lastPoseSentTick = -1;
 
   attach(network: ClientSocket, callbacks: OnlineSessionCallbacks): void {
     this.network = network;
@@ -54,10 +55,11 @@ export class OnlineSessionController {
   }
 
   sendPose(tick: number, player: Player, yaw: number): void {
-    if (!this.network || !this.session || tick % 3 !== 0) {
+    if (!this.network || !this.session || tick === this.lastPoseSentTick || tick % 2 !== 0) {
       return;
     }
 
+    this.lastPoseSentTick = tick;
     this.network.sendPlayerPose(player.getNetworkPose(this.session.playerId, yaw));
   }
 

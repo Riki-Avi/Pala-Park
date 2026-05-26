@@ -27,7 +27,10 @@ async function bootstrap(): Promise<void> {
         <button id="create-room" type="button">Crear sala</button>
         <input id="room-code" type="text" maxlength="4" placeholder="CODIGO" />
         <button id="join-room" type="button">Unirse</button>
-        <span id="network-status">Modo local</span>
+        <div class="network-info">
+          <span id="network-status">Modo local</span>
+          <span id="server-target">Servidor: detectando...</span>
+        </div>
       </section>
       <section class="controls" aria-label="Controles">
         <span>Click + mouse, WASD + Espacio</span>
@@ -41,19 +44,57 @@ async function bootstrap(): Promise<void> {
     </main>
   `;
 
-  await RAPIER.init();
-
   const canvas = document.querySelector<HTMLCanvasElement>("#game");
 
   if (!canvas) {
     throw new Error("Missing game canvas");
   }
 
-  const game = new Game(canvas);
   const network = new ClientSocket();
-  game.attachNetwork(network);
   setupNetworkUi(network);
+  await initializeRapier();
+
+  const game = new Game(canvas);
+  game.attachNetwork(network);
   game.start();
+}
+
+async function initializeRapier(): Promise<void> {
+  const objective = document.querySelector<HTMLSpanElement>("#objective");
+  const networkStatus = document.querySelector<HTMLSpanElement>("#network-status");
+
+  if (objective) {
+    objective.textContent = "Cargando fisica...";
+  }
+
+  try {
+    await withTimeout(RAPIER.init(), 8000, "Rapier tardo demasiado en inicializar");
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "No se pudo iniciar Rapier";
+    if (networkStatus) {
+      networkStatus.textContent = message;
+    }
+    if (objective) {
+      objective.textContent = "El navegador bloqueo la fisica. Proba localhost o HTTPS.";
+    }
+    throw error;
+  }
+}
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timeout = window.setTimeout(() => reject(new Error(message)), timeoutMs);
+    promise.then(
+      (value) => {
+        window.clearTimeout(timeout);
+        resolve(value);
+      },
+      (error: unknown) => {
+        window.clearTimeout(timeout);
+        reject(error);
+      }
+    );
+  });
 }
 
 function setupNetworkUi(network: ClientSocket): void {
@@ -61,6 +102,11 @@ function setupNetworkUi(network: ClientSocket): void {
   const joinRoom = document.querySelector<HTMLButtonElement>("#join-room");
   const roomCode = document.querySelector<HTMLInputElement>("#room-code");
   const networkStatus = document.querySelector<HTMLSpanElement>("#network-status");
+  const serverTarget = document.querySelector<HTMLSpanElement>("#server-target");
+
+  if (serverTarget) {
+    serverTarget.textContent = `Servidor: ${network.getServerUrl()}`;
+  }
 
   createRoom?.addEventListener("click", () => network.createRoom());
   joinRoom?.addEventListener("click", () => {

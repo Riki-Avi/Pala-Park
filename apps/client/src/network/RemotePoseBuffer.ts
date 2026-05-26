@@ -5,8 +5,8 @@ interface BufferedPose {
   pose: PlayerPose;
 }
 
-const INTERPOLATION_DELAY_MS = 120;
-const MAX_BUFFERED_POSES = 12;
+const INTERPOLATION_DELAY_MS = 100;
+const MAX_BUFFERED_POSES = 24;
 
 export class RemotePoseBuffer {
   private readonly poses: BufferedPose[] = [];

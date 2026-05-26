@@ -167,9 +167,27 @@ export class Player implements NetworkedEntity<PlayerSnapshot> {
     };
   }
 
-  applyNetworkPose(pose: PlayerPose): void {
-    this.body.setTranslation(pose.position, true);
+  applyNetworkPose(pose: PlayerPose, smoothing = 1): void {
+    const current = this.body.translation();
+    const distance = Math.hypot(
+      pose.position.x - current.x,
+      pose.position.y - current.y,
+      pose.position.z - current.z
+    );
+    const alpha = distance > 3 ? 1 : smoothing;
+    const nextPosition = {
+      x: current.x + (pose.position.x - current.x) * alpha,
+      y: current.y + (pose.position.y - current.y) * alpha,
+      z: current.z + (pose.position.z - current.z) * alpha
+    };
+
+    this.body.setTranslation(nextPosition, true);
     this.body.setLinvel(pose.velocity, true);
-    this.visualYaw = pose.yaw;
+    this.visualYaw = lerpAngle(this.visualYaw, pose.yaw, alpha);
   }
+}
+
+function lerpAngle(from: number, to: number, alpha: number): number {
+  const delta = Math.atan2(Math.sin(to - from), Math.cos(to - from));
+  return from + delta * alpha;
 }
