@@ -2,14 +2,19 @@ import type { RoomLifecycleState, RoomPlayer } from "@game/shared";
 
 export class GameRoom {
   readonly players = new Map<string, string>();
+  readonly clientIds = new Map<string, string>();
+  private readonly disconnectedAt = new Map<string, number>();
   resetId = 0;
+  lastResetAt = 0;
   state: RoomLifecycleState = "WAITING";
   tick = 0;
 
   constructor(readonly roomCode: string) {}
 
-  addPlayer(playerId: string, socketId: string): void {
+  addPlayer(playerId: string, socketId: string, clientId: string): void {
     this.players.set(playerId, socketId);
+    this.clientIds.set(playerId, clientId);
+    this.disconnectedAt.delete(playerId);
   }
 
   removePlayer(playerId: string): void {
@@ -17,6 +22,11 @@ export class GameRoom {
     if (this.players.size === 0) {
       this.state = "CLOSED";
     }
+  }
+
+  disconnectPlayer(playerId: string): void {
+    this.players.delete(playerId);
+    this.disconnectedAt.set(playerId, Date.now());
   }
 
   fixedUpdate(): void {
@@ -36,7 +46,37 @@ export class GameRoom {
   }
 
   getPlayers(): RoomPlayer[] {
-    return [...this.players.keys()].map((id) => ({ id }));
+    return [...this.clientIds.keys()].map((id) => ({ id }));
+  }
+
+  getPlayerIdByClient(clientId: string): string | null {
+    for (const [playerId, currentClientId] of this.clientIds) {
+      if (currentClientId === clientId) {
+        return playerId;
+      }
+    }
+
+    return null;
+  }
+
+  isPlayerConnected(playerId: string): boolean {
+    return this.players.has(playerId);
+  }
+
+  pruneDisconnected(maxAgeMs: number): void {
+    const now = Date.now();
+    for (const [playerId, disconnectedAt] of this.disconnectedAt) {
+      if (now - disconnectedAt < maxAgeMs) {
+        continue;
+      }
+
+      this.disconnectedAt.delete(playerId);
+      this.clientIds.delete(playerId);
+    }
+
+    if (this.players.size === 0 && this.clientIds.size === 0) {
+      this.state = "CLOSED";
+    }
   }
 
   nextResetId(): number {

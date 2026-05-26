@@ -18,7 +18,7 @@ async function bootstrap(): Promise<void> {
   });
 
   io.on("connection", (socket) => {
-    socket.on("createRoom", () => {
+    socket.on("createRoom", ({ clientId }: { clientId: string }) => {
       const room = rooms.createRoom();
       const playerId = rooms.nextPlayerId(room);
       if (!playerId) {
@@ -26,25 +26,31 @@ async function bootstrap(): Promise<void> {
         return;
       }
 
-      room.addPlayer(playerId, socket.id);
+      room.addPlayer(playerId, socket.id, clientId);
       socket.join(room.roomCode);
       socket.emit("roomCreated", { roomCode: room.roomCode, playerId, players: room.getPlayers() });
     });
 
-    socket.on("joinRoom", ({ roomCode }: { roomCode: string }) => {
+    socket.on("joinRoom", ({ roomCode, clientId }: { roomCode: string; clientId: string }) => {
       const room = rooms.joinRoom(roomCode);
       if (!room) {
         socket.emit("errorMessage", { message: "No se pudo entrar a la sala." });
         return;
       }
 
-      const playerId = rooms.nextPlayerId(room);
+      const existingPlayerId = room.getPlayerIdByClient(clientId);
+      if (existingPlayerId && room.isPlayerConnected(existingPlayerId)) {
+        socket.emit("errorMessage", { message: "Este cliente ya esta conectado a la sala." });
+        return;
+      }
+
+      const playerId = existingPlayerId ?? rooms.nextPlayerId(room);
       if (!playerId) {
         socket.emit("errorMessage", { message: "La sala esta llena." });
         return;
       }
 
-      room.addPlayer(playerId, socket.id);
+      room.addPlayer(playerId, socket.id, clientId);
       socket.join(room.roomCode);
       socket.emit("roomJoined", { roomCode: room.roomCode, playerId, players: room.getPlayers() });
       socket.to(room.roomCode).emit("playerJoined", { playerId, players: room.getPlayers() });
@@ -67,6 +73,12 @@ async function bootstrap(): Promise<void> {
         return;
       }
 
+      const now = Date.now();
+      if (now - room.lastResetAt < 800) {
+        return;
+      }
+      room.lastResetAt = now;
+
       io.to(room.roomCode).emit("levelReset", {
         roomCode: room.roomCode,
         byPlayerId: playerId,
@@ -82,7 +94,7 @@ async function bootstrap(): Promise<void> {
         return;
       }
 
-      room.removePlayer(playerId);
+      room.disconnectPlayer(playerId);
       socket.to(room.roomCode).emit("playerLeft", { playerId, players: room.getPlayers() });
     });
   });

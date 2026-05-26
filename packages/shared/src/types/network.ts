@@ -39,8 +39,8 @@ export interface LevelResetPayload {
 }
 
 export interface ClientToServerEvents {
-  createRoom: () => void;
-  joinRoom: (payload: { roomCode: string }) => void;
+  createRoom: (payload: { clientId: string }) => void;
+  joinRoom: (payload: { roomCode: string; clientId: string }) => void;
   playerInput: (payload: PlayerInput) => void;
   playerPose: (payload: PlayerPose) => void;
   resetLevel: (payload: { reason: "fall" | "manual" }) => void;

@@ -12,6 +12,7 @@ type GameSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
 export class ClientSocket {
   private readonly socket: GameSocket;
+  private readonly clientId = getOrCreateClientId();
   private readonly sessionHandlers: Array<(session: RoomJoinedPayload) => void> = [];
   private readonly playersHandlers: Array<(players: RoomPlayer[]) => void> = [];
   private readonly poseHandlers: Array<(pose: PlayerPose) => void> = [];
@@ -47,12 +48,12 @@ export class ClientSocket {
   }
 
   createRoom(): void {
-    this.socket.emit("createRoom");
+    this.socket.emit("createRoom", { clientId: this.clientId });
     this.emitStatus("Creando sala...");
   }
 
   joinRoom(roomCode: string): void {
-    this.socket.emit("joinRoom", { roomCode: roomCode.trim().toUpperCase() });
+    this.socket.emit("joinRoom", { roomCode: roomCode.trim().toUpperCase(), clientId: this.clientId });
     this.emitStatus("Uniendose a sala...");
   }
 
@@ -93,4 +94,16 @@ export class ClientSocket {
   private emitStatus(message: string): void {
     this.statusHandlers.forEach((handler) => handler(message));
   }
+}
+
+function getOrCreateClientId(): string {
+  const key = "pala-park-client-id";
+  const existing = window.localStorage.getItem(key);
+  if (existing) {
+    return existing;
+  }
+
+  const id = crypto.randomUUID();
+  window.localStorage.setItem(key, id);
+  return id;
 }

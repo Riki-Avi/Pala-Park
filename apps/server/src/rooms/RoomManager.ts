@@ -4,6 +4,7 @@ import { generateRoomCode } from "./RoomCodeGenerator";
 
 export class RoomManager {
   readonly rooms = new Map<string, GameRoom>();
+  private readonly disconnectedPlayerTtlMs = 30_000;
 
   createRoom(): GameRoom {
     let code = generateRoomCode();
@@ -48,6 +49,7 @@ export class RoomManager {
   fixedUpdate(): void {
     for (const [code, room] of this.rooms) {
       room.fixedUpdate();
+      room.pruneDisconnected(this.disconnectedPlayerTtlMs);
       if (room.state === "CLOSED") {
         this.rooms.delete(code);
       }

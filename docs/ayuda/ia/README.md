@@ -227,16 +227,23 @@ parkour-03 y: 2.1
 
 ## Servidor
 
-Hay una base de servidor en `apps/server`, pero todavia no esta integrada al gameplay real.
-
 Incluye:
 
 - `ServerGameLoop` con acumulador.
 - `RoomManager`.
 - `GameRoom`.
 - Socket.IO basico para crear/unirse a sala.
+- Eventos online simples para poses de jugadores y reset global.
 
-No asumir que el multiplayer ya funciona. El gameplay actual es local.
+El online actual es una primera version pragmatica:
+
+- Crear sala.
+- Unirse con codigo.
+- Asignar `p1`, `p2`, `p3`, `p4`.
+- Enviar/recibir poses de jugadores.
+- Reset global si alguien cae o presiona `R`.
+
+No asumir que ya existe servidor autoritativo completo. La fisica de caja/boton/puerta todavia no es oficial en servidor.
 
 ## Comandos
 
@@ -249,6 +256,7 @@ npm install
 Desarrollo:
 
 ```bash
+npm run dev:server
 npm run dev
 ```
 
@@ -284,12 +292,52 @@ Preferencias expresadas:
 - No usar trucos donde jugadores inactivos queden anclados.
 - En local puede usarse Tab para cambiar jugador, pero la fisica debe representar lo que se quiere para el juego completo.
 
+## Recordatorio de clean code
+
+El usuario pregunto si el proyecto esta siguiendo clean code y buenas practicas. Respuesta honesta: si, para un prototipo que crece, pero todavia no es arquitectura final de produccion.
+
+Recordar esto en futuras sesiones:
+
+- Mantener `Game.ts` como orquestador, no dejar que vuelva a ser un archivo gigante.
+- Cada vez que se agreguen 2 o 3 features, hacer una pasada corta de limpieza.
+- Priorizar modulos chicos con responsabilidades claras.
+- Evitar hacks temporales que contradigan el gameplay final.
+- Si una solucion es solo para modo local/debug, nombrarla explicitamente como tal.
+- Mantener contratos compartidos en `packages/shared`.
+- No duplicar constantes de gameplay entre cliente y servidor.
+- Correr `npm run typecheck` y `npm run build` antes de cerrar cambios importantes.
+
+Deuda tecnica/refactors a ir atacando mientras avanza el proyecto:
+
+1. Separar `Game.ts` en controladores mas chicos:
+   - `LevelController`
+   - `PlayerController`
+   - `OnlineSessionController`
+   - `HudController`
+2. Crear una capa clara para modo `local` vs modo `online`.
+3. Mover reglas de reset y caidas a un servicio de reglas de partida.
+4. Agregar interpolacion de jugadores remotos para suavizar el online.
+5. Crear snapshots mas formales para jugadores/cajas/puertas/botones.
+6. Preparar una simulacion autoritativa en servidor para caja, boton y puerta.
+7. Agregar tests unitarios para:
+   - generador de codigos de sala,
+   - RoomManager,
+   - reglas de reset,
+   - reglas de meta.
+8. Centralizar configuracion de gameplay:
+   - nivel inicial,
+   - cantidad de jugadores,
+   - frecuencia de envio de poses,
+   - limites de caida,
+   - constantes de movimiento.
+9. Documentar cada feature grande en `docs/commit`.
+
 ## Siguiente trabajo probable
 
 Buenas siguientes tareas:
 
-1. Agregar indicador visual del jugador activo.
+1. Agregar interpolacion de jugadores remotos para que el online no se vea aspero.
 2. Ajustar dificultad real de la escalera humana en nivel 2 tras testear.
-3. Agregar animaciones simples de puerta/boton/meta.
-4. Agregar checkpoint o respawn por jugador.
-5. Empezar online basico solo cuando el movimiento y puzzles locales se sientan bien.
+3. Definir mejor la separacion local/online.
+4. Empezar a mover caja/boton/puerta hacia autoridad de servidor.
+5. Agregar tests pequenos en servidor.

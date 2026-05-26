@@ -7,6 +7,7 @@ import { LevelRuntime } from "../levels/LevelRuntime";
 import { level01 } from "../levels/level-01";
 import { level02 } from "../levels/level-02";
 import { ClientSocket } from "../network/ClientSocket";
+import { RemotePlayerInterpolator } from "../network/RemotePlayerInterpolator";
 import { PhysicsWorld } from "../physics/PhysicsWorld";
 import { CameraController } from "../render/CameraController";
 
@@ -31,6 +32,7 @@ export class Game {
   private activePlayerIndex = 0;
   private network: ClientSocket | null = null;
   private onlineSession: OnlineSession | null = null;
+  private readonly remotePlayerInterpolator = new RemotePlayerInterpolator();
   private pendingOnlineReset = false;
   private levelAdvanceTimer = -1;
   private accumulator = 0;
@@ -68,6 +70,7 @@ export class Game {
     this.network = network;
     network.onSession((session) => {
       this.onlineSession = session;
+      this.remotePlayerInterpolator.clear();
       this.activePlayerIndex = this.playerIndexFromId(session.playerId);
       this.loadLevel(0);
       document.querySelector("#objective")!.textContent = `Online nivel 1 - controlas ${session.playerId}`;
@@ -102,6 +105,8 @@ export class Game {
       this.accumulator -= FIXED_DELTA;
     }
 
+    this.interpolateRemotePlayers();
+
     for (const player of this.players) {
       player.syncMesh();
     }
@@ -128,6 +133,10 @@ export class Game {
 
     for (const [index, player] of this.players.entries()) {
       const isActivePlayer = index === this.activePlayerIndex;
+      if (this.onlineSession && !isActivePlayer) {
+        continue;
+      }
+
       const playerInput = isActivePlayer ? this.input.getPrimaryInput() : createEmptyInput();
       player.applyInput(playerInput, this.input.yaw, isActivePlayer, FIXED_DELTA);
     }
@@ -323,8 +332,17 @@ export class Game {
       return;
     }
 
-    const player = this.players[this.playerIndexFromId(pose.playerId)];
-    player?.applyNetworkPose(pose);
+    this.remotePlayerInterpolator.push(pose);
+  }
+
+  private interpolateRemotePlayers(): void {
+    if (!this.onlineSession) {
+      return;
+    }
+
+    this.remotePlayerInterpolator.apply(this.players, this.onlineSession.playerId, (playerId) =>
+      this.playerIndexFromId(playerId)
+    );
   }
 
   private requestOnlineReset(reason: "fall" | "manual"): void {
