@@ -1,7 +1,8 @@
-import type { RoomLifecycleState } from "@game/shared";
+import type { RoomLifecycleState, RoomPlayer } from "@game/shared";
 
 export class GameRoom {
   readonly players = new Map<string, string>();
+  resetId = 0;
   state: RoomLifecycleState = "WAITING";
   tick = 0;
 
@@ -22,5 +23,24 @@ export class GameRoom {
     if (this.state === "PLAYING") {
       this.tick += 1;
     }
+  }
+
+  getPlayerIdBySocket(socketId: string): string | null {
+    for (const [playerId, currentSocketId] of this.players) {
+      if (currentSocketId === socketId) {
+        return playerId;
+      }
+    }
+
+    return null;
+  }
+
+  getPlayers(): RoomPlayer[] {
+    return [...this.players.keys()].map((id) => ({ id }));
+  }
+
+  nextResetId(): number {
+    this.resetId += 1;
+    return this.resetId;
   }
 }

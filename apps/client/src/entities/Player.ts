@@ -6,6 +6,7 @@ import {
   PLAYER_SIZE,
   PLAYER_SPEED,
   type NetworkedEntity,
+  type PlayerPose,
   type PlayerSnapshot,
   type Vec3
 } from "@game/shared";
@@ -153,5 +154,22 @@ export class Player implements NetworkedEntity<PlayerSnapshot> {
     this.isGrounded = snapshot.isGrounded;
     this.inGoal = snapshot.inGoal;
     this.lastProcessedInput = snapshot.lastProcessedInput;
+  }
+
+  getNetworkPose(playerId: string, yaw: number): PlayerPose {
+    const position = this.body.translation();
+    const velocity = this.body.linvel();
+    return {
+      playerId,
+      position: { x: position.x, y: position.y, z: position.z },
+      velocity: { x: velocity.x, y: velocity.y, z: velocity.z },
+      yaw
+    };
+  }
+
+  applyNetworkPose(pose: PlayerPose): void {
+    this.body.setTranslation(pose.position, true);
+    this.body.setLinvel(pose.velocity, true);
+    this.visualYaw = pose.yaw;
   }
 }

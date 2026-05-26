@@ -1,5 +1,6 @@
 import RAPIER from "@dimforge/rapier3d-compat";
 import { Game } from "./core/Game";
+import { ClientSocket } from "./network/ClientSocket";
 import "./styles.css";
 
 async function bootstrap(): Promise<void> {
@@ -22,9 +23,15 @@ async function bootstrap(): Promise<void> {
         </div>
       </section>
       <canvas id="game"></canvas>
+      <section class="network-panel" aria-label="Sala online">
+        <button id="create-room" type="button">Crear sala</button>
+        <input id="room-code" type="text" maxlength="4" placeholder="CODIGO" />
+        <button id="join-room" type="button">Unirse</button>
+        <span id="network-status">Modo local</span>
+      </section>
       <section class="controls" aria-label="Controles">
         <span>Click + mouse, WASD + Espacio</span>
-        <span>Tab cambia entre 4 jugadores</span>
+        <span>Tab cambia jugador en local</span>
         <label class="sensitivity">
           Mouse
           <input id="mouse-sensitivity" type="range" min="0.8" max="6" step="0.1" value="2.4" />
@@ -43,7 +50,35 @@ async function bootstrap(): Promise<void> {
   }
 
   const game = new Game(canvas);
+  const network = new ClientSocket();
+  game.attachNetwork(network);
+  setupNetworkUi(network);
   game.start();
+}
+
+function setupNetworkUi(network: ClientSocket): void {
+  const createRoom = document.querySelector<HTMLButtonElement>("#create-room");
+  const joinRoom = document.querySelector<HTMLButtonElement>("#join-room");
+  const roomCode = document.querySelector<HTMLInputElement>("#room-code");
+  const networkStatus = document.querySelector<HTMLSpanElement>("#network-status");
+
+  createRoom?.addEventListener("click", () => network.createRoom());
+  joinRoom?.addEventListener("click", () => {
+    if (roomCode?.value) {
+      network.joinRoom(roomCode.value);
+    }
+  });
+
+  network.onSession((session) => {
+    if (roomCode) {
+      roomCode.value = session.roomCode;
+    }
+  });
+  network.onStatus((message) => {
+    if (networkStatus) {
+      networkStatus.textContent = message;
+    }
+  });
 }
 
 bootstrap().catch((error) => {

@@ -24,6 +24,27 @@ export class RoomManager {
     return room;
   }
 
+  findRoomBySocket(socketId: string): GameRoom | null {
+    for (const room of this.rooms.values()) {
+      if (room.getPlayerIdBySocket(socketId)) {
+        return room;
+      }
+    }
+
+    return null;
+  }
+
+  nextPlayerId(room: GameRoom): string | null {
+    for (let index = 1; index <= MAX_PLAYERS_PER_ROOM; index += 1) {
+      const playerId = `p${index}`;
+      if (!room.players.has(playerId)) {
+        return playerId;
+      }
+    }
+
+    return null;
+  }
+
   fixedUpdate(): void {
     for (const [code, room] of this.rooms) {
       room.fixedUpdate();

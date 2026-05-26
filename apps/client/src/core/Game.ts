@@ -1,13 +1,20 @@
 import * as THREE from "three";
-import { FIXED_DELTA, PLAYER_SIZE, type Vec3 } from "@game/shared";
+import { FIXED_DELTA, PLAYER_SIZE, type PlayerPose, type RoomPlayer, type Vec3 } from "@game/shared";
 import { Player } from "../entities/Player";
 import { InputManager } from "../input/InputManager";
 import { createEmptyInput } from "../input/InputState";
 import { LevelRuntime } from "../levels/LevelRuntime";
 import { level01 } from "../levels/level-01";
 import { level02 } from "../levels/level-02";
+import { ClientSocket } from "../network/ClientSocket";
 import { PhysicsWorld } from "../physics/PhysicsWorld";
 import { CameraController } from "../render/CameraController";
+
+interface OnlineSession {
+  roomCode: string;
+  playerId: string;
+  players: RoomPlayer[];
+}
 
 export class Game {
   private readonly renderer: THREE.WebGLRenderer;
@@ -22,6 +29,9 @@ export class Game {
   private level: LevelRuntime;
   private currentLevelIndex = 1;
   private activePlayerIndex = 0;
+  private network: ClientSocket | null = null;
+  private onlineSession: OnlineSession | null = null;
+  private pendingOnlineReset = false;
   private levelAdvanceTimer = -1;
   private accumulator = 0;
   private tick = 0;
@@ -54,6 +64,28 @@ export class Game {
     this.animationFrame = window.requestAnimationFrame(this.update);
   }
 
+  attachNetwork(network: ClientSocket): void {
+    this.network = network;
+    network.onSession((session) => {
+      this.onlineSession = session;
+      this.activePlayerIndex = this.playerIndexFromId(session.playerId);
+      this.loadLevel(0);
+      document.querySelector("#objective")!.textContent = `Online nivel 1 - controlas ${session.playerId}`;
+    });
+
+    network.onPlayers((players) => {
+      if (this.onlineSession) {
+        this.onlineSession.players = players;
+      }
+    });
+
+    network.onPlayerPose((pose) => this.applyRemotePose(pose));
+    network.onLevelReset((payload) => {
+      this.pendingOnlineReset = false;
+      this.resetLevel(`Nivel reiniciado por ${payload.byPlayerId}`);
+    });
+  }
+
   dispose(): void {
     window.cancelAnimationFrame(this.animationFrame);
     window.removeEventListener("resize", this.resize);
@@ -83,10 +115,14 @@ export class Game {
 
   private fixedUpdate(): void {
     if (this.input.consumeResetPressed()) {
-      this.resetLevel();
+      if (this.onlineSession) {
+        this.requestOnlineReset("manual");
+      } else {
+        this.resetLevel();
+      }
     }
 
-    if (this.input.consumeSwitchPlayerPressed()) {
+    if (!this.onlineSession && this.input.consumeSwitchPlayerPressed()) {
       this.switchActivePlayer();
     }
 
@@ -104,6 +140,7 @@ export class Game {
     this.updateGoal();
     this.recoverFallenPlayers();
     this.level.recoverFallenObjects();
+    this.sendOnlinePose();
   }
 
   private createPlayers(spawnPoints: Vec3[]): void {
@@ -207,7 +244,7 @@ export class Game {
       player.inGoal = goal.contains(playerPositions[index]);
     }
 
-    const allInGoal = this.level.isCompleted(playerPositions);
+    const allInGoal = this.level.isCompleted(this.getGoalPlayerPositions());
 
     if (allInGoal && this.levelAdvanceTimer < 0) {
       this.levelAdvanceTimer = 0.8;
@@ -229,6 +266,14 @@ export class Game {
   }
 
   private recoverFallenPlayers(): void {
+    if (this.onlineSession) {
+      const localPlayer = this.players[this.activePlayerIndex];
+      if (localPlayer.body.translation().y < -8) {
+        this.requestOnlineReset("fall");
+      }
+      return;
+    }
+
     for (const [index, player] of this.players.entries()) {
       if (player.body.translation().y < -8) {
         player.reset(this.level.definition.spawnPoints[index]);
@@ -236,13 +281,13 @@ export class Game {
     }
   }
 
-  private resetLevel(): void {
+  private resetLevel(message = "Nivel reiniciado"): void {
     for (const [index, player] of this.players.entries()) {
       player.reset(this.level.definition.spawnPoints[index]);
     }
     this.levelAdvanceTimer = -1;
     this.level.resetDynamicObjects();
-    document.querySelector("#objective")!.textContent = "Nivel reiniciado";
+    document.querySelector("#objective")!.textContent = message;
   }
 
   private switchActivePlayer(): void {
@@ -253,11 +298,61 @@ export class Game {
   }
 
   private loadNextLevel(): void {
-    this.currentLevelIndex = (this.currentLevelIndex + 1) % this.levels.length;
+    this.loadLevel((this.currentLevelIndex + 1) % this.levels.length);
+  }
+
+  private loadLevel(levelIndex: number): void {
+    this.currentLevelIndex = levelIndex;
     this.level.dispose();
     this.level = new LevelRuntime(this.levels[this.currentLevelIndex], this.scene, this.physics.world);
     this.resetLevel();
     this.updateLevelText();
+  }
+
+  private sendOnlinePose(): void {
+    if (!this.network || !this.onlineSession || this.tick % 3 !== 0) {
+      return;
+    }
+
+    const localPlayer = this.players[this.activePlayerIndex];
+    this.network.sendPlayerPose(localPlayer.getNetworkPose(this.onlineSession.playerId, this.input.yaw));
+  }
+
+  private applyRemotePose(pose: PlayerPose): void {
+    if (pose.playerId === this.onlineSession?.playerId) {
+      return;
+    }
+
+    const player = this.players[this.playerIndexFromId(pose.playerId)];
+    player?.applyNetworkPose(pose);
+  }
+
+  private requestOnlineReset(reason: "fall" | "manual"): void {
+    if (!this.network || this.pendingOnlineReset) {
+      return;
+    }
+
+    this.pendingOnlineReset = true;
+    this.network.requestReset(reason);
+  }
+
+  private getGoalPlayerPositions(): Vec3[] {
+    if (!this.onlineSession) {
+      return this.getPlayerPositions();
+    }
+
+    return this.onlineSession.players
+      .map((player) => this.players[this.playerIndexFromId(player.id)])
+      .filter((player): player is Player => Boolean(player))
+      .map((player) => {
+        const position = player.body.translation();
+        return { x: position.x, y: position.y, z: position.z };
+      });
+  }
+
+  private playerIndexFromId(playerId: string): number {
+    const index = Number(playerId.replace("p", "")) - 1;
+    return Math.max(0, Math.min(this.players.length - 1, Number.isFinite(index) ? index : 0));
   }
 
   private getPlayerPositions(): Vec3[] {
