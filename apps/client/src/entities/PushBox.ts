@@ -1,0 +1,70 @@
+import RAPIER from "@dimforge/rapier3d-compat";
+import * as THREE from "three";
+import type { BoxDefinition, Vec3 } from "@game/shared";
+import { createBox, standardMaterials } from "../render/MeshFactory";
+
+export class PushBox {
+  readonly mesh: THREE.Mesh;
+  readonly body: RAPIER.RigidBody;
+  private readonly collider: RAPIER.Collider;
+
+  constructor(
+    readonly definition: BoxDefinition,
+    private readonly world: RAPIER.World
+  ) {
+    this.mesh = createBox(definition.size, standardMaterials.box);
+    this.mesh.position.set(definition.position.x, definition.position.y, definition.position.z);
+
+    this.body = world.createRigidBody(
+      RAPIER.RigidBodyDesc.dynamic()
+        .setTranslation(definition.position.x, definition.position.y, definition.position.z)
+        .setCanSleep(false)
+        .lockRotations()
+    );
+
+    this.collider = world.createCollider(
+      RAPIER.ColliderDesc.cuboid(
+        definition.size.x / 2,
+        definition.size.y / 2,
+        definition.size.z / 2
+      )
+        .setDensity(0.45)
+        .setFriction(0.6),
+      this.body
+    );
+  }
+
+  syncMesh(): void {
+    const position = this.body.translation();
+    this.mesh.position.set(position.x, position.y, position.z);
+  }
+
+  getPosition(): Vec3 {
+    const position = this.body.translation();
+    return { x: position.x, y: position.y, z: position.z };
+  }
+
+  reset(): void {
+    this.body.setTranslation(this.definition.position, true);
+    this.body.setLinvel({ x: 0, y: 0, z: 0 }, true);
+    this.body.setAngvel({ x: 0, y: 0, z: 0 }, true);
+  }
+
+  respawnFromSky(): void {
+    this.body.setTranslation(
+      {
+        x: this.definition.position.x,
+        y: this.definition.position.y + 6,
+        z: this.definition.position.z
+      },
+      true
+    );
+    this.body.setLinvel({ x: 0, y: 0, z: 0 }, true);
+    this.body.setAngvel({ x: 0, y: 0, z: 0 }, true);
+  }
+
+  dispose(): void {
+    this.world.removeCollider(this.collider, true);
+    this.world.removeRigidBody(this.body);
+  }
+}

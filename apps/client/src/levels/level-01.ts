@@ -1,0 +1,42 @@
+import type { LevelDefinition } from "@game/shared";
+
+export const level01: LevelDefinition = {
+  id: "level-01",
+  name: "Escalera humana",
+  objective: "Hagan una escalera de 3, bajen la caja y llevenla al boton",
+  spawnPoints: [
+    { x: -7.4, y: 2, z: -2.1 },
+    { x: -7.4, y: 2, z: -0.7 },
+    { x: -7.4, y: 2, z: 0.7 },
+    { x: -7.4, y: 2, z: 2.1 }
+  ],
+  platforms: [
+    { id: "start-floor", position: { x: -4.2, y: 0, z: 0 }, size: { x: 12, y: 0.6, z: 7 } },
+    { id: "door-floor", position: { x: 8.2, y: 0, z: 0 }, size: { x: 10, y: 0.6, z: 7 } },
+    { id: "button-pad", position: { x: 2.2, y: 0.15, z: -2.2 }, size: { x: 2.2, y: 0.3, z: 2.2 } },
+    { id: "box-shelf", position: { x: -0.8, y: 2.45, z: 0 }, size: { x: 3.2, y: 0.5, z: 3.2 } }
+  ],
+  boxes: [
+    { id: "box-01", position: { x: -0.8, y: 3.35, z: 0 }, size: { x: 1.15, y: 1.15, z: 1.15 } }
+  ],
+  buttons: [
+    {
+      id: "button-01",
+      position: { x: 2.2, y: 0.55, z: -2.2 },
+      size: { x: 1.4, y: 0.16, z: 1.4 },
+      targetDoorIds: ["door-01"],
+      mode: "hold"
+    }
+  ],
+  doors: [
+    { id: "door-01", position: { x: 4.4, y: 1.15, z: 0 }, size: { x: 0.45, y: 2.25, z: 4.2 } }
+  ],
+  goalZones: [
+    {
+      id: "goal",
+      position: { x: 10.8, y: 0.75, z: 0 },
+      size: { x: 1.8, y: 1.5, z: 4 },
+      requiredPlayers: "all"
+    }
+  ]
+};
