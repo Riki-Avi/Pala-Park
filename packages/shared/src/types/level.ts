@@ -33,10 +33,17 @@ export interface BoxDefinition {
   size: Vec3;
 }
 
+export interface LevelRules {
+  resetOnAnyPlayerFall: boolean;
+  respawnBoxesFromSky: boolean;
+  autoAdvanceOnComplete: boolean;
+}
+
 export interface LevelDefinition {
   id: string;
   name: string;
   objective: string;
+  rules: LevelRules;
   spawnPoints: Vec3[];
   platforms: PlatformDefinition[];
   boxes: BoxDefinition[];

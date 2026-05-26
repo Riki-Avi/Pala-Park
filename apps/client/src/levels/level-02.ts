@@ -4,6 +4,11 @@ export const level02: LevelDefinition = {
   id: "level-02",
   name: "Parkour a la caja",
   objective: "Suban por el parkour, hagan escalera, bajen la caja y abran la puerta",
+  rules: {
+    resetOnAnyPlayerFall: true,
+    respawnBoxesFromSky: true,
+    autoAdvanceOnComplete: true
+  },
   spawnPoints: [
     { x: -9.2, y: 2, z: -2.1 },
     { x: -9.2, y: 2, z: -0.7 },

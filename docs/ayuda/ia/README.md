@@ -27,16 +27,19 @@ docs/ayuda/humano
 
 Archivos importantes:
 
-- `apps/client/src/core/Game.ts`: orquesta loop, niveles, jugadores, camara, reset y objetivos.
+- `apps/client/src/core/Game.ts`: orquesta loop principal, input, fisica, render y delega reglas/online/niveles.
+- `apps/client/src/core/GameRulesController.ts`: reglas reutilizables de grounded, empuje suave, caidas y meta.
 - `apps/client/src/entities/Player.ts`: jugador fisico, input, salto, coyote time y jump buffer.
 - `apps/client/src/entities/PushBox.ts`: caja empujable fisica.
 - `apps/client/src/entities/Button.ts`: boton que detecta jugadores/cajas.
 - `apps/client/src/entities/Door.ts`: puerta con collider removible al abrirse.
 - `apps/client/src/entities/GoalZone.ts`: zona de meta que requiere jugadores.
 - `apps/client/src/levels/LevelRuntime.ts`: carga/descarga plataformas, cajas, botones, puertas y metas.
+- `apps/client/src/levels/LevelController.ts`: administra nivel actual, cambio de nivel y runtime activo.
 - `apps/client/src/levels/level-01.ts`: nivel tutorial de escalera humana.
 - `apps/client/src/levels/level-02.ts`: nivel actual de parkour + escalera humana.
 - `apps/client/src/input/InputManager.ts`: teclado, mouse look, sensibilidad, reset y cambio de jugador.
+- `apps/client/src/network/OnlineSessionController.ts`: sesion online, poses, interpolacion remota y reset online.
 - `packages/shared/src/types/level.ts`: contrato declarativo de niveles.
 
 ## Estado actual del juego
@@ -47,7 +50,7 @@ El juego arranca directamente en el nivel 2 para testear rapido:
 private currentLevelIndex = 1;
 ```
 
-Esto esta en `apps/client/src/core/Game.ts`.
+Esto ahora se define al crear `LevelController` en `apps/client/src/core/Game.ts`.
 
 Para volver a empezar en el nivel 1, cambiarlo a:
 
@@ -307,30 +310,53 @@ Recordar esto en futuras sesiones:
 - No duplicar constantes de gameplay entre cliente y servidor.
 - Correr `npm run typecheck` y `npm run build` antes de cerrar cambios importantes.
 
+## Regla clave: independencia de niveles
+
+El usuario pidio explicitamente que cada nivel se pueda crear y luego dejar estable: un cambio futuro en `level-10` no deberia afectar a `level-2`.
+
+Mantener esta regla como prioridad:
+
+- No hardcodear comportamiento por `levelId` dentro de `Game.ts`.
+- Las diferencias entre niveles deben vivir en la definicion del nivel o en sistemas reutilizables.
+- Si un nivel necesita una regla especial, primero intentar expresarla en `LevelDefinition.rules`.
+- Si una regla es demasiado especifica, encapsularla como sistema/modulo de nivel, no mezclarla con el loop central.
+- Evitar cambiar entidades compartidas de forma que rompa niveles existentes sin revisar impacto.
+
+La estructura actual empieza a soportar esto:
+
+- `LevelDefinition.rules` declara reglas del nivel.
+- `LevelController` carga, cambia y resetea niveles desde definiciones.
+- `LevelRuntime` instancia entidades reutilizables desde datos declarativos.
+
+Estado actual del refactor:
+
+- `Game.ts` bajo aproximadamente de 424 a 269 lineas.
+- `LevelController` ya existe.
+- `OnlineSessionController` ya existe.
+- `GameRulesController` ya existe.
+- La interpolacion remota vive fuera de `Game.ts`.
+
 Deuda tecnica/refactors a ir atacando mientras avanza el proyecto:
 
-1. Separar `Game.ts` en controladores mas chicos:
-   - `LevelController`
-   - `PlayerController`
-   - `OnlineSessionController`
-   - `HudController`
-2. Crear una capa clara para modo `local` vs modo `online`.
-3. Mover reglas de reset y caidas a un servicio de reglas de partida.
-4. Agregar interpolacion de jugadores remotos para suavizar el online.
-5. Crear snapshots mas formales para jugadores/cajas/puertas/botones.
-6. Preparar una simulacion autoritativa en servidor para caja, boton y puerta.
-7. Agregar tests unitarios para:
+1. Crear `PlayerController` para input local/remoto y control de jugadores.
+2. Crear `HudController` para textos de objetivo, FPS, sala y estado.
+3. Crear una capa mas clara para modo `local` vs modo `online`.
+4. Convertir `GameRulesController` en sistemas mas pequenos si crece demasiado.
+5. Mejorar interpolacion de jugadores remotos con timestamps del servidor.
+6. Crear snapshots mas formales para jugadores/cajas/puertas/botones.
+7. Preparar una simulacion autoritativa en servidor para caja, boton y puerta.
+8. Agregar tests unitarios para:
    - generador de codigos de sala,
    - RoomManager,
    - reglas de reset,
    - reglas de meta.
-8. Centralizar configuracion de gameplay:
+9. Centralizar configuracion de gameplay:
    - nivel inicial,
    - cantidad de jugadores,
    - frecuencia de envio de poses,
    - limites de caida,
    - constantes de movimiento.
-9. Documentar cada feature grande en `docs/commit`.
+10. Documentar cada feature grande en `docs/commit`.
 
 ## Siguiente trabajo probable
 

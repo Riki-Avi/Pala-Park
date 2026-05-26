@@ -1,21 +1,16 @@
 import * as THREE from "three";
-import { FIXED_DELTA, PLAYER_SIZE, type PlayerPose, type RoomPlayer, type Vec3 } from "@game/shared";
+import { FIXED_DELTA, type Vec3 } from "@game/shared";
+import { GameRulesController } from "./GameRulesController";
 import { Player } from "../entities/Player";
 import { InputManager } from "../input/InputManager";
 import { createEmptyInput } from "../input/InputState";
-import { LevelRuntime } from "../levels/LevelRuntime";
+import { LevelController } from "../levels/LevelController";
 import { level01 } from "../levels/level-01";
 import { level02 } from "../levels/level-02";
 import { ClientSocket } from "../network/ClientSocket";
-import { RemotePlayerInterpolator } from "../network/RemotePlayerInterpolator";
+import { OnlineSessionController } from "../network/OnlineSessionController";
 import { PhysicsWorld } from "../physics/PhysicsWorld";
 import { CameraController } from "../render/CameraController";
-
-interface OnlineSession {
-  roomCode: string;
-  playerId: string;
-  players: RoomPlayer[];
-}
 
 export class Game {
   private readonly renderer: THREE.WebGLRenderer;
@@ -25,15 +20,11 @@ export class Game {
   private readonly clock = new THREE.Clock();
   private readonly input = new InputManager();
   private readonly physics = new PhysicsWorld();
+  private readonly rules = new GameRulesController();
+  private readonly online = new OnlineSessionController();
   private readonly players: Player[] = [];
-  private readonly levels = [level01, level02];
-  private level: LevelRuntime;
-  private currentLevelIndex = 1;
+  private readonly levelController: LevelController;
   private activePlayerIndex = 0;
-  private network: ClientSocket | null = null;
-  private onlineSession: OnlineSession | null = null;
-  private readonly remotePlayerInterpolator = new RemotePlayerInterpolator();
-  private pendingOnlineReset = false;
   private levelAdvanceTimer = -1;
   private accumulator = 0;
   private tick = 0;
@@ -51,7 +42,7 @@ export class Game {
     this.scene.fog = new THREE.Fog("#20242c", 20, 60);
 
     this.setupLighting();
-    this.level = new LevelRuntime(this.levels[this.currentLevelIndex], this.scene, this.physics.world);
+    this.levelController = new LevelController([level01, level02], this.scene, this.physics.world, 1);
     this.createPlayers(this.level.definition.spawnPoints);
     this.input.enablePointerLook(this.canvas);
     this.setupSensitivityControl();
@@ -67,25 +58,13 @@ export class Game {
   }
 
   attachNetwork(network: ClientSocket): void {
-    this.network = network;
-    network.onSession((session) => {
-      this.onlineSession = session;
-      this.remotePlayerInterpolator.clear();
-      this.activePlayerIndex = this.playerIndexFromId(session.playerId);
-      this.loadLevel(0);
-      document.querySelector("#objective")!.textContent = `Online nivel 1 - controlas ${session.playerId}`;
-    });
-
-    network.onPlayers((players) => {
-      if (this.onlineSession) {
-        this.onlineSession.players = players;
-      }
-    });
-
-    network.onPlayerPose((pose) => this.applyRemotePose(pose));
-    network.onLevelReset((payload) => {
-      this.pendingOnlineReset = false;
-      this.resetLevel(`Nivel reiniciado por ${payload.byPlayerId}`);
+    this.online.attach(network, {
+      onSessionStarted: (session) => {
+        this.activePlayerIndex = this.playerIndexFromId(session.playerId);
+        this.loadLevel(0);
+        document.querySelector("#objective")!.textContent = `Online nivel 1 - controlas ${session.playerId}`;
+      },
+      onLevelReset: (message) => this.resetLevel(message)
     });
   }
 
@@ -93,7 +72,12 @@ export class Game {
     window.cancelAnimationFrame(this.animationFrame);
     window.removeEventListener("resize", this.resize);
     this.input.dispose();
+    this.levelController.dispose();
     this.renderer.dispose();
+  }
+
+  private get level() {
+    return this.levelController.current;
   }
 
   private readonly update = (): void => {
@@ -105,7 +89,7 @@ export class Game {
       this.accumulator -= FIXED_DELTA;
     }
 
-    this.interpolateRemotePlayers();
+    this.online.interpolateRemotes(this.players, (playerId) => this.playerIndexFromId(playerId));
 
     for (const player of this.players) {
       player.syncMesh();
@@ -120,20 +104,20 @@ export class Game {
 
   private fixedUpdate(): void {
     if (this.input.consumeResetPressed()) {
-      if (this.onlineSession) {
-        this.requestOnlineReset("manual");
+      if (this.online.isOnline) {
+        this.online.requestReset("manual");
       } else {
         this.resetLevel();
       }
     }
 
-    if (!this.onlineSession && this.input.consumeSwitchPlayerPressed()) {
+    if (!this.online.isOnline && this.input.consumeSwitchPlayerPressed()) {
       this.switchActivePlayer();
     }
 
     for (const [index, player] of this.players.entries()) {
       const isActivePlayer = index === this.activePlayerIndex;
-      if (this.onlineSession && !isActivePlayer) {
+      if (this.online.isOnline && !isActivePlayer) {
         continue;
       }
 
@@ -143,13 +127,15 @@ export class Game {
 
     this.physics.step();
     this.tick += 1;
-    this.dampenPlayerPush();
-    this.updateGrounding();
-    this.level.update(this.getPlayerPositions());
+    this.rules.dampenPlayerPush(this.players);
+    this.rules.updateGrounding(this.players, this.level);
+    this.level.update(this.rules.getPlayerPositions(this.players));
     this.updateGoal();
     this.recoverFallenPlayers();
-    this.level.recoverFallenObjects();
-    this.sendOnlinePose();
+    if (this.level.definition.rules.respawnBoxesFromSky) {
+      this.level.recoverFallenObjects();
+    }
+    this.online.sendPose(this.tick, this.players[this.activePlayerIndex], this.input.yaw);
   }
 
   private createPlayers(spawnPoints: Vec3[]): void {
@@ -176,118 +162,29 @@ export class Game {
     this.scene.add(grid);
   }
 
-  private updateGrounding(): void {
-    for (const [index, player] of this.players.entries()) {
-      const position = player.body.translation();
-      player.setGrounded(this.hasGroundBelow(position, index));
-    }
-  }
-
-  private dampenPlayerPush(): void {
-    for (let firstIndex = 0; firstIndex < this.players.length; firstIndex += 1) {
-      for (let secondIndex = firstIndex + 1; secondIndex < this.players.length; secondIndex += 1) {
-        const first = this.players[firstIndex];
-        const second = this.players[secondIndex];
-        const firstPosition = first.body.translation();
-        const secondPosition = second.body.translation();
-        const horizontalDistance = Math.hypot(
-          firstPosition.x - secondPosition.x,
-          firstPosition.z - secondPosition.z
-        );
-        const verticalDistance = Math.abs(firstPosition.y - secondPosition.y);
-
-        if (horizontalDistance > PLAYER_SIZE.x * 1.05 || verticalDistance > PLAYER_SIZE.y * 0.85) {
-          continue;
-        }
-
-        const firstVelocity = first.body.linvel();
-        const secondVelocity = second.body.linvel();
-        first.body.setLinvel(
-          { x: firstVelocity.x * 0.45, y: firstVelocity.y, z: firstVelocity.z * 0.45 },
-          true
-        );
-        second.body.setLinvel(
-          { x: secondVelocity.x * 0.45, y: secondVelocity.y, z: secondVelocity.z * 0.45 },
-          true
-        );
-      }
-    }
-  }
-
-  private hasGroundBelow(position: Vec3, playerIndex: number): boolean {
-    const playerBottom = position.y - PLAYER_SIZE.y / 2;
-    const standingSurfaces = [
-      ...this.level.platforms,
-      ...this.level.buttons.map((button) => ({
-        id: button.definition.id,
-        position: button.definition.position,
-        size: button.definition.size
-      })),
-      ...this.level.boxes.map((box) => ({
-        id: box.definition.id,
-        position: box.getPosition(),
-        size: box.definition.size
-      })),
-      ...this.players
-        .filter((_, index) => index !== playerIndex)
-        .map((player) => ({
-          id: player.id,
-          position: player.body.translation(),
-          size: PLAYER_SIZE
-        }))
-    ];
-
-    return standingSurfaces.some((surface) => {
-      const surfaceTop = surface.position.y + surface.size.y / 2;
-      const nearTop = playerBottom >= surfaceTop - 0.09 && playerBottom <= surfaceTop + 0.18;
-      const insideX = Math.abs(position.x - surface.position.x) <= surface.size.x / 2 + PLAYER_SIZE.x / 2;
-      const insideZ = Math.abs(position.z - surface.position.z) <= surface.size.z / 2 + PLAYER_SIZE.z / 2;
-      return nearTop && insideX && insideZ;
-    });
-  }
-
   private updateGoal(): void {
-    const goal = this.level.goalZones[0];
-    const playerPositions = this.getPlayerPositions();
-    for (const [index, player] of this.players.entries()) {
-      player.inGoal = goal.contains(playerPositions[index]);
-    }
+    const result = this.rules.updateGoal(
+      this.players,
+      this.level,
+      this.getGoalPlayerPositions(),
+      this.levelAdvanceTimer
+    );
+    this.levelAdvanceTimer = result.timer;
 
-    const allInGoal = this.level.isCompleted(this.getGoalPlayerPositions());
-
-    if (allInGoal && this.levelAdvanceTimer < 0) {
-      this.levelAdvanceTimer = 0.8;
-    }
-
-    if (this.levelAdvanceTimer >= 0) {
-      this.levelAdvanceTimer -= FIXED_DELTA;
-      if (this.levelAdvanceTimer <= 0) {
-        this.loadNextLevel();
-        return;
-      }
-    }
-
-    document.querySelector("#objective")!.textContent = allInGoal
-      ? "Nivel completado"
-      : this.level.doors.every((door) => door.open)
-        ? "Cruzen juntos hasta la zona verde"
-        : this.level.definition.objective;
-  }
-
-  private recoverFallenPlayers(): void {
-    if (this.onlineSession) {
-      const localPlayer = this.players[this.activePlayerIndex];
-      if (localPlayer.body.translation().y < -8) {
-        this.requestOnlineReset("fall");
-      }
+    if (result.shouldAdvance) {
+      this.loadNextLevel();
       return;
     }
 
-    for (const [index, player] of this.players.entries()) {
-      if (player.body.translation().y < -8) {
-        player.reset(this.level.definition.spawnPoints[index]);
-      }
-    }
+    document.querySelector("#objective")!.textContent = result.objective;
+  }
+
+  private recoverFallenPlayers(): void {
+    this.rules.recoverFallenPlayers(this.players, this.level, {
+      activePlayerIndex: this.activePlayerIndex,
+      isOnline: this.online.isOnline,
+      requestOnlineReset: () => this.online.requestReset("fall")
+    });
   }
 
   private resetLevel(message = "Nivel reiniciado"): void {
@@ -307,59 +204,23 @@ export class Game {
   }
 
   private loadNextLevel(): void {
-    this.loadLevel((this.currentLevelIndex + 1) % this.levels.length);
-  }
-
-  private loadLevel(levelIndex: number): void {
-    this.currentLevelIndex = levelIndex;
-    this.level.dispose();
-    this.level = new LevelRuntime(this.levels[this.currentLevelIndex], this.scene, this.physics.world);
+    this.levelController.loadNext();
     this.resetLevel();
     this.updateLevelText();
   }
 
-  private sendOnlinePose(): void {
-    if (!this.network || !this.onlineSession || this.tick % 3 !== 0) {
-      return;
-    }
-
-    const localPlayer = this.players[this.activePlayerIndex];
-    this.network.sendPlayerPose(localPlayer.getNetworkPose(this.onlineSession.playerId, this.input.yaw));
-  }
-
-  private applyRemotePose(pose: PlayerPose): void {
-    if (pose.playerId === this.onlineSession?.playerId) {
-      return;
-    }
-
-    this.remotePlayerInterpolator.push(pose);
-  }
-
-  private interpolateRemotePlayers(): void {
-    if (!this.onlineSession) {
-      return;
-    }
-
-    this.remotePlayerInterpolator.apply(this.players, this.onlineSession.playerId, (playerId) =>
-      this.playerIndexFromId(playerId)
-    );
-  }
-
-  private requestOnlineReset(reason: "fall" | "manual"): void {
-    if (!this.network || this.pendingOnlineReset) {
-      return;
-    }
-
-    this.pendingOnlineReset = true;
-    this.network.requestReset(reason);
+  private loadLevel(levelIndex: number): void {
+    this.levelController.load(levelIndex);
+    this.resetLevel();
+    this.updateLevelText();
   }
 
   private getGoalPlayerPositions(): Vec3[] {
-    if (!this.onlineSession) {
-      return this.getPlayerPositions();
+    if (!this.online.isOnline) {
+      return this.rules.getPlayerPositions(this.players);
     }
 
-    return this.onlineSession.players
+    return this.online.players
       .map((player) => this.players[this.playerIndexFromId(player.id)])
       .filter((player): player is Player => Boolean(player))
       .map((player) => {
@@ -371,13 +232,6 @@ export class Game {
   private playerIndexFromId(playerId: string): number {
     const index = Number(playerId.replace("p", "")) - 1;
     return Math.max(0, Math.min(this.players.length - 1, Number.isFinite(index) ? index : 0));
-  }
-
-  private getPlayerPositions(): Vec3[] {
-    return this.players.map((player) => {
-      const position = player.body.translation();
-      return { x: position.x, y: position.y, z: position.z };
-    });
   }
 
   private setupSensitivityControl(): void {

@@ -4,6 +4,11 @@ export const level01: LevelDefinition = {
   id: "level-01",
   name: "Escalera humana",
   objective: "Hagan una escalera de 3, bajen la caja y llevenla al boton",
+  rules: {
+    resetOnAnyPlayerFall: true,
+    respawnBoxesFromSky: true,
+    autoAdvanceOnComplete: true
+  },
   spawnPoints: [
     { x: -7.4, y: 2, z: -2.1 },
     { x: -7.4, y: 2, z: -0.7 },
