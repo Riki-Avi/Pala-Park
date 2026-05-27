@@ -171,6 +171,14 @@ export class Game {
   }
 
   private updateGoal(): void {
+    if (this.online.isOnline && !this.online.isHost) {
+      const progress = this.online.getGoalProgress();
+      if (progress?.levelId === this.level.definition.id) {
+        this.updateGoalFromProgress(progress.completed);
+        return;
+      }
+    }
+
     const result = this.rules.updateGoal(
       this.players,
       this.level,
@@ -178,13 +186,68 @@ export class Game {
       this.levelAdvanceTimer
     );
     this.levelAdvanceTimer = result.timer;
+    const progress = this.getGoalProgress();
 
     if (result.shouldAdvance) {
       this.loadNextLevel();
       return;
     }
 
-    document.querySelector("#objective")!.textContent = result.objective;
+    this.online.sendGoalProgress(this.tick, progress);
+    document.querySelector("#objective")!.textContent = this.getGoalObjective(result.objective, progress);
+  }
+
+  private updateGoalFromProgress(completed: boolean): void {
+    if (completed && this.level.definition.rules.autoAdvanceOnComplete && this.levelAdvanceTimer < 0) {
+      this.levelAdvanceTimer = 0.8;
+    }
+
+    if (this.levelAdvanceTimer >= 0) {
+      this.levelAdvanceTimer -= FIXED_DELTA;
+      if (this.levelAdvanceTimer <= 0) {
+        this.loadNextLevel();
+        return;
+      }
+    }
+
+    const progress = this.online.getGoalProgress();
+    document.querySelector("#objective")!.textContent =
+      progress && progress.levelId === this.level.definition.id
+        ? this.getGoalObjective(completed ? "Nivel completado" : "Cruzen juntos hasta la zona verde", progress)
+        : "Cruzen juntos hasta la zona verde";
+  }
+
+  private getGoalProgress() {
+    const goal = this.level.goalZones[0];
+    const positions = this.getGoalPlayerPositions();
+    const players = this.online.isOnline
+      ? this.online.players
+      : this.players.map((player) => ({ id: player.id, connected: true }));
+    const requiredPlayers =
+      goal.definition.requiredPlayers === "all" ? positions.length : goal.definition.requiredPlayers;
+    const playersInGoal = players
+      .filter((_, index) => positions[index] && goal.contains(positions[index]))
+      .map((player) => player.id);
+
+    return {
+      levelId: this.level.definition.id,
+      requiredPlayers,
+      playersInGoal,
+      completed: playersInGoal.length >= requiredPlayers
+    };
+  }
+
+  private getGoalObjective(fallback: string, progress: { requiredPlayers: number; playersInGoal: string[]; completed: boolean }): string {
+    if (progress.completed) {
+      return "Nivel completado";
+    }
+
+    if (!this.level.doors.every((door) => door.open)) {
+      return fallback;
+    }
+
+    const missing = Math.max(0, progress.requiredPlayers - progress.playersInGoal.length);
+    return `Meta ${progress.playersInGoal.length}/${progress.requiredPlayers} - faltan ${missing}`;
   }
 
   private updateLevelState(): void {

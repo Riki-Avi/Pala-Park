@@ -32,6 +32,7 @@ export interface RoomJoinedPayload {
   players: RoomPlayer[];
   roomState: RoomStatePayload;
   levelState?: LevelStatePayload;
+  goalProgress?: GoalProgressPayload;
 }
 
 export interface PlayerPose {
@@ -66,6 +67,15 @@ export interface LevelStatePayload {
   doors: DoorState[];
 }
 
+export interface GoalProgressPayload {
+  roomCode: string;
+  levelId: string;
+  serverTick: number;
+  requiredPlayers: number;
+  playersInGoal: string[];
+  completed: boolean;
+}
+
 export interface LevelResetPayload {
   roomCode: string;
   byPlayerId: string;
@@ -79,6 +89,7 @@ export interface ClientToServerEvents {
   playerInput: (payload: PlayerInput) => void;
   playerPose: (payload: PlayerPose) => void;
   levelState: (payload: LevelStatePayload) => void;
+  goalProgress: (payload: GoalProgressPayload) => void;
   resetLevel: (payload: { reason: "fall" | "manual" }) => void;
   playerReady: () => void;
   requestStartGame: () => void;
@@ -93,6 +104,7 @@ export interface ServerToClientEvents {
   gameStarted: (payload: RoomStatePayload) => void;
   playerPose: (payload: PlayerPose) => void;
   levelState: (payload: LevelStatePayload) => void;
+  goalProgress: (payload: GoalProgressPayload) => void;
   levelReset: (payload: LevelResetPayload) => void;
   gameSnapshot: (payload: GameSnapshot) => void;
   errorMessage: (payload: { message: string }) => void;

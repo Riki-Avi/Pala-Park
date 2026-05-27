@@ -1,5 +1,5 @@
 import RAPIER from "@dimforge/rapier3d-compat";
-import type { LevelStatePayload, PlayerPose } from "@game/shared";
+import type { GoalProgressPayload, LevelStatePayload, PlayerPose } from "@game/shared";
 import { Server as SocketServer } from "socket.io";
 import { ServerGameLoop } from "./core/ServerGameLoop";
 import { RoomManager } from "./rooms/RoomManager";
@@ -33,7 +33,8 @@ async function bootstrap(): Promise<void> {
         playerId,
         players: room.getPlayers(),
         roomState: room.getRoomState(),
-        levelState: room.levelState ?? undefined
+        levelState: room.levelState ?? undefined,
+        goalProgress: room.goalProgress ?? undefined
       });
       io.to(room.roomCode).emit("roomState", room.getRoomState());
     });
@@ -64,7 +65,8 @@ async function bootstrap(): Promise<void> {
         playerId,
         players: room.getPlayers(),
         roomState: room.getRoomState(),
-        levelState: room.levelState ?? undefined
+        levelState: room.levelState ?? undefined,
+        goalProgress: room.goalProgress ?? undefined
       });
       socket.to(room.roomCode).emit("playerJoined", { playerId, players: room.getPlayers() });
       io.to(room.roomCode).emit("roomState", room.getRoomState());
@@ -94,6 +96,17 @@ async function bootstrap(): Promise<void> {
       socket.to(room.roomCode).emit("levelState", payload);
     });
 
+    socket.on("goalProgress", (payload: GoalProgressPayload) => {
+      const room = rooms.findRoomBySocket(socket.id);
+      const playerId = room?.getPlayerIdBySocket(socket.id);
+      if (!room || playerId !== "p1" || payload.roomCode !== room.roomCode) {
+        return;
+      }
+
+      room.goalProgress = payload;
+      socket.to(room.roomCode).emit("goalProgress", payload);
+    });
+
     socket.on("resetLevel", ({ reason }: { reason: "fall" | "manual" }) => {
       const room = rooms.findRoomBySocket(socket.id);
       const playerId = room?.getPlayerIdBySocket(socket.id);
@@ -107,6 +120,7 @@ async function bootstrap(): Promise<void> {
       }
       room.lastResetAt = now;
       room.levelState = null;
+      room.goalProgress = null;
 
       io.to(room.roomCode).emit("levelReset", {
         roomCode: room.roomCode,

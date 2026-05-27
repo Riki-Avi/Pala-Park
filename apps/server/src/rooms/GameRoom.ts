@@ -1,4 +1,11 @@
-import { MAX_PLAYERS_PER_ROOM, type LevelStatePayload, type RoomLifecycleState, type RoomStatePayload, type RoomPlayer } from "@game/shared";
+import {
+  MAX_PLAYERS_PER_ROOM,
+  type GoalProgressPayload,
+  type LevelStatePayload,
+  type RoomLifecycleState,
+  type RoomPlayer,
+  type RoomStatePayload
+} from "@game/shared";
 
 export class GameRoom {
   readonly players = new Map<string, string>();
@@ -7,6 +14,7 @@ export class GameRoom {
   resetId = 0;
   lastResetAt = 0;
   levelState: LevelStatePayload | null = null;
+  goalProgress: GoalProgressPayload | null = null;
   state: RoomLifecycleState = "WAITING";
   tick = 0;
 

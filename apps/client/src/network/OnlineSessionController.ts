@@ -1,4 +1,10 @@
-import type { LevelStatePayload, RoomJoinedPayload, RoomPlayer, RoomStatePayload } from "@game/shared";
+import type {
+  GoalProgressPayload,
+  LevelStatePayload,
+  RoomJoinedPayload,
+  RoomPlayer,
+  RoomStatePayload
+} from "@game/shared";
 import type { Player } from "../entities/Player";
 import type { LevelRuntime } from "../levels/LevelRuntime";
 import { ClientSocket } from "./ClientSocket";
@@ -17,7 +23,9 @@ export class OnlineSessionController {
   private pendingReset = false;
   private lastPoseSentTick = -1;
   private lastLevelStateSentTick = -1;
+  private lastGoalProgressSentTick = -1;
   private pendingLevelState: LevelStatePayload | null = null;
+  private pendingGoalProgress: GoalProgressPayload | null = null;
 
   attach(network: ClientSocket, callbacks: OnlineSessionCallbacks): void {
     this.network = network;
@@ -27,6 +35,7 @@ export class OnlineSessionController {
       this.roomState = session.roomState;
       this.remotePlayerInterpolator.clear();
       this.pendingLevelState = session.levelState ?? null;
+      this.pendingGoalProgress = session.goalProgress ?? null;
       callbacks.onSessionStarted(session);
     });
 
@@ -62,9 +71,16 @@ export class OnlineSessionController {
       }
     });
 
+    network.onGoalProgress((payload) => {
+      if (payload.roomCode === this.session?.roomCode) {
+        this.pendingGoalProgress = payload;
+      }
+    });
+
     network.onLevelReset((payload) => {
       this.pendingReset = false;
       this.pendingLevelState = null;
+      this.pendingGoalProgress = null;
       callbacks.onLevelReset(`Nivel reiniciado por ${payload.byPlayerId}`);
     });
   }
@@ -128,6 +144,30 @@ export class OnlineSessionController {
     }
 
     level.applyLevelState(this.pendingLevelState);
+  }
+
+  sendGoalProgress(tick: number, payload: Omit<GoalProgressPayload, "roomCode" | "serverTick">): void {
+    if (
+      !this.network ||
+      !this.session ||
+      !this.isPlaying ||
+      !this.isHost ||
+      tick === this.lastGoalProgressSentTick ||
+      tick % 3 !== 0
+    ) {
+      return;
+    }
+
+    this.lastGoalProgressSentTick = tick;
+    this.network.sendGoalProgress({
+      ...payload,
+      roomCode: this.session.roomCode,
+      serverTick: tick
+    });
+  }
+
+  getGoalProgress(): GoalProgressPayload | null {
+    return this.pendingGoalProgress;
   }
 
   interpolateRemotes(players: Player[], playerIndexFromId: (playerId: string) => number): void {

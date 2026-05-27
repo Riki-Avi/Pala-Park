@@ -1,6 +1,7 @@
 import { io, type Socket } from "socket.io-client";
 import type {
   ClientToServerEvents,
+  GoalProgressPayload,
   LevelResetPayload,
   LevelStatePayload,
   PlayerPose,
@@ -22,6 +23,7 @@ export class ClientSocket {
   private readonly gameStartedHandlers: Array<(payload: RoomStatePayload) => void> = [];
   private readonly poseHandlers: Array<(pose: PlayerPose) => void> = [];
   private readonly levelStateHandlers: Array<(payload: LevelStatePayload) => void> = [];
+  private readonly goalProgressHandlers: Array<(payload: GoalProgressPayload) => void> = [];
   private readonly resetHandlers: Array<(payload: LevelResetPayload) => void> = [];
   private readonly statusHandlers: Array<(message: string) => void> = [];
 
@@ -59,6 +61,7 @@ export class ClientSocket {
     });
     this.socket.on("playerPose", (pose) => this.poseHandlers.forEach((handler) => handler(pose)));
     this.socket.on("levelState", (payload) => this.levelStateHandlers.forEach((handler) => handler(payload)));
+    this.socket.on("goalProgress", (payload) => this.goalProgressHandlers.forEach((handler) => handler(payload)));
     this.socket.on("levelReset", (payload) => this.resetHandlers.forEach((handler) => handler(payload)));
   }
 
@@ -78,6 +81,10 @@ export class ClientSocket {
 
   sendLevelState(payload: LevelStatePayload): void {
     this.socket.emit("levelState", payload);
+  }
+
+  sendGoalProgress(payload: GoalProgressPayload): void {
+    this.socket.emit("goalProgress", payload);
   }
 
   requestReset(reason: "fall" | "manual"): void {
@@ -110,6 +117,10 @@ export class ClientSocket {
 
   onLevelState(handler: (payload: LevelStatePayload) => void): void {
     this.levelStateHandlers.push(handler);
+  }
+
+  onGoalProgress(handler: (payload: GoalProgressPayload) => void): void {
+    this.goalProgressHandlers.push(handler);
   }
 
   onLevelReset(handler: (payload: LevelResetPayload) => void): void {
