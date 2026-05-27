@@ -58,14 +58,14 @@ Esto permite que el juego funcione en red local usando HTTP.
 Tambien se agrego un texto visible en el panel online:
 
 ```text
-Servidor: http://192.168.1.50:3000
+Servidor: http://192.168.1.50:3001
 ```
 
 Y los mensajes de conexion ahora muestran el destino real:
 
 ```text
-Servidor conectado: http://192.168.1.50:3000
-No se pudo conectar a http://192.168.1.50:3000
+Servidor conectado: http://192.168.1.50:3001
+No se pudo conectar a http://192.168.1.50:3001
 ```
 
 Esto ayuda a distinguir rapidamente entre:
@@ -112,7 +112,7 @@ Se verifico:
 - crear y unir dos clientes Socket.IO simulados,
 - abrir el cliente desde `http://192.168.1.50:5173/`,
 - ver `60 FPS`,
-- ver `Servidor conectado: http://192.168.1.50:3000`,
+- ver `Servidor conectado: http://192.168.1.50:3001`,
 - `npm run typecheck`,
 - `npm run build`.
 

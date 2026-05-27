@@ -129,10 +129,10 @@ export class Game {
     this.tick += 1;
     this.rules.dampenPlayerPush(this.players);
     this.rules.updateGrounding(this.players, this.level);
-    this.level.update(this.rules.getPlayerPositions(this.players));
+    this.updateLevelState();
     this.updateGoal();
     this.recoverFallenPlayers();
-    if (this.level.definition.rules.respawnBoxesFromSky) {
+    if ((!this.online.isOnline || this.online.isHost) && this.level.definition.rules.respawnBoxesFromSky) {
       this.level.recoverFallenObjects();
     }
     this.online.sendPose(this.tick, this.players[this.activePlayerIndex], this.input.yaw);
@@ -177,6 +177,16 @@ export class Game {
     }
 
     document.querySelector("#objective")!.textContent = result.objective;
+  }
+
+  private updateLevelState(): void {
+    if (this.online.isOnline && !this.online.isHost) {
+      this.online.applyLevelState(this.level);
+      return;
+    }
+
+    this.level.update(this.rules.getPlayerPositions(this.players));
+    this.online.sendLevelState(this.tick, this.level);
   }
 
   private recoverFallenPlayers(): void {

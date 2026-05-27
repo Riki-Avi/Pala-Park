@@ -1,6 +1,6 @@
 import RAPIER from "@dimforge/rapier3d-compat";
 import * as THREE from "three";
-import type { LevelDefinition, PlatformDefinition, Vec3 } from "@game/shared";
+import type { LevelDefinition, LevelStatePayload, PlatformDefinition, Vec3 } from "@game/shared";
 import { Button } from "../entities/Button";
 import { Door } from "../entities/Door";
 import { GoalZone } from "../entities/GoalZone";
@@ -77,6 +77,41 @@ export class LevelRuntime {
   syncDynamicMeshes(): void {
     for (const box of this.boxes) {
       box.syncMesh();
+    }
+  }
+
+  getLevelState(roomCode: string, serverTick: number): LevelStatePayload {
+    return {
+      roomCode,
+      levelId: this.definition.id,
+      serverTick,
+      boxes: this.boxes.map((box) => box.getState()),
+      buttons: this.buttons.map((button) => ({
+        id: button.definition.id,
+        pressed: button.pressed
+      })),
+      doors: this.doors.map((door) => ({
+        id: door.definition.id,
+        open: door.open
+      }))
+    };
+  }
+
+  applyLevelState(state: LevelStatePayload): void {
+    if (state.levelId !== this.definition.id) {
+      return;
+    }
+
+    for (const boxState of state.boxes) {
+      this.boxes.find((box) => box.definition.id === boxState.id)?.applyState(boxState);
+    }
+
+    for (const buttonState of state.buttons) {
+      this.buttons.find((button) => button.definition.id === buttonState.id)?.setPressed(buttonState.pressed);
+    }
+
+    for (const doorState of state.doors) {
+      this.doors.find((door) => door.definition.id === doorState.id)?.setOpen(doorState.open);
     }
   }
 

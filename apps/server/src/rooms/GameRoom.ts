@@ -1,4 +1,4 @@
-import type { RoomLifecycleState, RoomPlayer } from "@game/shared";
+import type { LevelStatePayload, RoomLifecycleState, RoomPlayer } from "@game/shared";
 
 export class GameRoom {
   readonly players = new Map<string, string>();
@@ -6,6 +6,7 @@ export class GameRoom {
   private readonly disconnectedAt = new Map<string, number>();
   resetId = 0;
   lastResetAt = 0;
+  levelState: LevelStatePayload | null = null;
   state: RoomLifecycleState = "WAITING";
   tick = 0;
 

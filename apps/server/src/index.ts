@@ -1,5 +1,5 @@
 import RAPIER from "@dimforge/rapier3d-compat";
-import type { PlayerPose } from "@game/shared";
+import type { LevelStatePayload, PlayerPose } from "@game/shared";
 import { Server as SocketServer } from "socket.io";
 import { ServerGameLoop } from "./core/ServerGameLoop";
 import { RoomManager } from "./rooms/RoomManager";
@@ -7,7 +7,7 @@ import { RoomManager } from "./rooms/RoomManager";
 async function bootstrap(): Promise<void> {
   await RAPIER.init();
 
-  const port = Number(process.env.PORT ?? 3000);
+  const port = Number(process.env.PORT ?? 3001);
   const clientUrl = process.env.CLIENT_URL ?? "http://localhost:5173";
   const rooms = new RoomManager();
 
@@ -28,7 +28,12 @@ async function bootstrap(): Promise<void> {
 
       room.addPlayer(playerId, socket.id, clientId);
       socket.join(room.roomCode);
-      socket.emit("roomCreated", { roomCode: room.roomCode, playerId, players: room.getPlayers() });
+      socket.emit("roomCreated", {
+        roomCode: room.roomCode,
+        playerId,
+        players: room.getPlayers(),
+        levelState: room.levelState ?? undefined
+      });
     });
 
     socket.on("joinRoom", ({ roomCode, clientId }: { roomCode: string; clientId: string }) => {
@@ -52,7 +57,12 @@ async function bootstrap(): Promise<void> {
 
       room.addPlayer(playerId, socket.id, clientId);
       socket.join(room.roomCode);
-      socket.emit("roomJoined", { roomCode: room.roomCode, playerId, players: room.getPlayers() });
+      socket.emit("roomJoined", {
+        roomCode: room.roomCode,
+        playerId,
+        players: room.getPlayers(),
+        levelState: room.levelState ?? undefined
+      });
       socket.to(room.roomCode).emit("playerJoined", { playerId, players: room.getPlayers() });
     });
 
@@ -64,6 +74,17 @@ async function bootstrap(): Promise<void> {
       }
 
       socket.to(room.roomCode).emit("playerPose", pose);
+    });
+
+    socket.on("levelState", (payload: LevelStatePayload) => {
+      const room = rooms.findRoomBySocket(socket.id);
+      const playerId = room?.getPlayerIdBySocket(socket.id);
+      if (!room || playerId !== "p1" || payload.roomCode !== room.roomCode) {
+        return;
+      }
+
+      room.levelState = payload;
+      socket.to(room.roomCode).emit("levelState", payload);
     });
 
     socket.on("resetLevel", ({ reason }: { reason: "fall" | "manual" }) => {
@@ -78,6 +99,7 @@ async function bootstrap(): Promise<void> {
         return;
       }
       room.lastResetAt = now;
+      room.levelState = null;
 
       io.to(room.roomCode).emit("levelReset", {
         roomCode: room.roomCode,

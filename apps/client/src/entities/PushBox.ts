@@ -1,6 +1,6 @@
 import RAPIER from "@dimforge/rapier3d-compat";
 import * as THREE from "three";
-import type { BoxDefinition, Vec3 } from "@game/shared";
+import type { BoxDefinition, BoxState, Vec3 } from "@game/shared";
 import { createBox, standardMaterials } from "../render/MeshFactory";
 
 export class PushBox {
@@ -42,6 +42,21 @@ export class PushBox {
   getPosition(): Vec3 {
     const position = this.body.translation();
     return { x: position.x, y: position.y, z: position.z };
+  }
+
+  getState(): BoxState {
+    const position = this.body.translation();
+    const velocity = this.body.linvel();
+    return {
+      id: this.definition.id,
+      position: { x: position.x, y: position.y, z: position.z },
+      velocity: { x: velocity.x, y: velocity.y, z: velocity.z }
+    };
+  }
+
+  applyState(state: BoxState): void {
+    this.body.setTranslation(state.position, true);
+    this.body.setLinvel(state.velocity, true);
   }
 
   reset(): void {

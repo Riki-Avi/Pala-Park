@@ -1,5 +1,6 @@
-import type { RoomJoinedPayload, RoomPlayer } from "@game/shared";
+import type { LevelStatePayload, RoomJoinedPayload, RoomPlayer } from "@game/shared";
 import type { Player } from "../entities/Player";
+import type { LevelRuntime } from "../levels/LevelRuntime";
 import { ClientSocket } from "./ClientSocket";
 import { RemotePlayerInterpolator } from "./RemotePlayerInterpolator";
 
@@ -14,6 +15,8 @@ export class OnlineSessionController {
   private readonly remotePlayerInterpolator = new RemotePlayerInterpolator();
   private pendingReset = false;
   private lastPoseSentTick = -1;
+  private lastLevelStateSentTick = -1;
+  private pendingLevelState: LevelStatePayload | null = null;
 
   attach(network: ClientSocket, callbacks: OnlineSessionCallbacks): void {
     this.network = network;
@@ -21,6 +24,7 @@ export class OnlineSessionController {
     network.onSession((session) => {
       this.session = session;
       this.remotePlayerInterpolator.clear();
+      this.pendingLevelState = session.levelState ?? null;
       callbacks.onSessionStarted(session);
     });
 
@@ -36,8 +40,15 @@ export class OnlineSessionController {
       }
     });
 
+    network.onLevelState((payload) => {
+      if (payload.roomCode === this.session?.roomCode) {
+        this.pendingLevelState = payload;
+      }
+    });
+
     network.onLevelReset((payload) => {
       this.pendingReset = false;
+      this.pendingLevelState = null;
       callbacks.onLevelReset(`Nivel reiniciado por ${payload.byPlayerId}`);
     });
   }
@@ -48,6 +59,10 @@ export class OnlineSessionController {
 
   get playerId(): string | null {
     return this.session?.playerId ?? null;
+  }
+
+  get isHost(): boolean {
+    return this.session?.playerId === "p1";
   }
 
   get players(): RoomPlayer[] {
@@ -61,6 +76,23 @@ export class OnlineSessionController {
 
     this.lastPoseSentTick = tick;
     this.network.sendPlayerPose(player.getNetworkPose(this.session.playerId, yaw));
+  }
+
+  sendLevelState(tick: number, level: LevelRuntime): void {
+    if (!this.network || !this.session || !this.isHost || tick === this.lastLevelStateSentTick || tick % 3 !== 0) {
+      return;
+    }
+
+    this.lastLevelStateSentTick = tick;
+    this.network.sendLevelState(level.getLevelState(this.session.roomCode, tick));
+  }
+
+  applyLevelState(level: LevelRuntime): void {
+    if (!this.pendingLevelState || this.isHost) {
+      return;
+    }
+
+    level.applyLevelState(this.pendingLevelState);
   }
 
   interpolateRemotes(players: Player[], playerIndexFromId: (playerId: string) => number): void {

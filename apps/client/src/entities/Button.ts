@@ -11,14 +11,19 @@ export class Button {
   ) {}
 
   update(weightPositions: Vec3[]): void {
-    this.pressed = weightPositions.some((position) =>
-      this.contains(position, {
-        x: this.definition.size.x + 0.35,
-        y: 2,
-        z: this.definition.size.z + 0.35
-      })
+    this.setPressed(
+      weightPositions.some((position) =>
+        this.contains(position, {
+          x: this.definition.size.x + 0.35,
+          y: 2,
+          z: this.definition.size.z + 0.35
+        })
+      )
     );
+  }
 
+  setPressed(pressed: boolean): void {
+    this.pressed = pressed;
     this.mesh.material = this.pressed ? standardMaterials.buttonPressed : standardMaterials.button;
     this.mesh.scale.y = this.pressed ? 0.45 : 1;
   }

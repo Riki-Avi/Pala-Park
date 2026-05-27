@@ -33,7 +33,7 @@ Archivo:
 apps/client/package.json
 ```
 
-Esto permite que el navegador se conecte al servidor Socket.IO que corre en `localhost:3000` o en la IP de la maquina host.
+Esto permite que el navegador se conecte al servidor Socket.IO que corre en `localhost:3001` o en la IP de la maquina host.
 
 ## 2. Nuevos contratos compartidos de red
 

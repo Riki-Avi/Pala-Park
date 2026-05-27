@@ -2,6 +2,7 @@ import { io, type Socket } from "socket.io-client";
 import type {
   ClientToServerEvents,
   LevelResetPayload,
+  LevelStatePayload,
   PlayerPose,
   RoomJoinedPayload,
   RoomPlayer,
@@ -17,11 +18,12 @@ export class ClientSocket {
   private readonly sessionHandlers: Array<(session: RoomJoinedPayload) => void> = [];
   private readonly playersHandlers: Array<(players: RoomPlayer[]) => void> = [];
   private readonly poseHandlers: Array<(pose: PlayerPose) => void> = [];
+  private readonly levelStateHandlers: Array<(payload: LevelStatePayload) => void> = [];
   private readonly resetHandlers: Array<(payload: LevelResetPayload) => void> = [];
   private readonly statusHandlers: Array<(message: string) => void> = [];
 
   constructor() {
-    this.serverUrl = import.meta.env.VITE_SERVER_URL ?? `${window.location.protocol}//${window.location.hostname}:3000`;
+    this.serverUrl = import.meta.env.VITE_SERVER_URL ?? `${window.location.protocol}//${window.location.hostname}:3001`;
 
     this.socket = io(this.serverUrl, {
       autoConnect: true,
@@ -44,6 +46,7 @@ export class ClientSocket {
       this.emitStatus(`Jugadores en sala: ${players.length}`);
     });
     this.socket.on("playerPose", (pose) => this.poseHandlers.forEach((handler) => handler(pose)));
+    this.socket.on("levelState", (payload) => this.levelStateHandlers.forEach((handler) => handler(payload)));
     this.socket.on("levelReset", (payload) => this.resetHandlers.forEach((handler) => handler(payload)));
   }
 
@@ -59,6 +62,10 @@ export class ClientSocket {
 
   sendPlayerPose(pose: PlayerPose): void {
     this.socket.emit("playerPose", pose);
+  }
+
+  sendLevelState(payload: LevelStatePayload): void {
+    this.socket.emit("levelState", payload);
   }
 
   requestReset(reason: "fall" | "manual"): void {
@@ -79,6 +86,10 @@ export class ClientSocket {
 
   onPlayerPose(handler: (pose: PlayerPose) => void): void {
     this.poseHandlers.push(handler);
+  }
+
+  onLevelState(handler: (payload: LevelStatePayload) => void): void {
+    this.levelStateHandlers.push(handler);
   }
 
   onLevelReset(handler: (payload: LevelResetPayload) => void): void {
