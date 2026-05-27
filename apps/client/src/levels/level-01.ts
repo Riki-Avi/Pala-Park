@@ -41,7 +41,7 @@ export const level01: LevelDefinition = {
       id: "goal",
       position: { x: 10.8, y: 0.75, z: 0 },
       size: { x: 1.8, y: 1.5, z: 4 },
-      requiredPlayers: "all"
+      requiredPlayers: 2
     }
   ]
 };

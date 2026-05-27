@@ -1,4 +1,4 @@
-import type { LevelStatePayload, RoomLifecycleState, RoomPlayer } from "@game/shared";
+import { MAX_PLAYERS_PER_ROOM, type LevelStatePayload, type RoomLifecycleState, type RoomStatePayload, type RoomPlayer } from "@game/shared";
 
 export class GameRoom {
   readonly players = new Map<string, string>();
@@ -16,6 +16,9 @@ export class GameRoom {
     this.players.set(playerId, socketId);
     this.clientIds.set(playerId, clientId);
     this.disconnectedAt.delete(playerId);
+    if (this.clientIds.size >= MAX_PLAYERS_PER_ROOM) {
+      this.state = "PLAYING";
+    }
   }
 
   removePlayer(playerId: string): void {
@@ -47,7 +50,19 @@ export class GameRoom {
   }
 
   getPlayers(): RoomPlayer[] {
-    return [...this.clientIds.keys()].map((id) => ({ id }));
+    return [...this.clientIds.keys()].map((id) => ({
+      id,
+      connected: this.players.has(id)
+    }));
+  }
+
+  getRoomState(): RoomStatePayload {
+    return {
+      roomCode: this.roomCode,
+      state: this.state,
+      players: this.getPlayers(),
+      requiredPlayers: MAX_PLAYERS_PER_ROOM
+    };
   }
 
   getPlayerIdByClient(clientId: string): string | null {

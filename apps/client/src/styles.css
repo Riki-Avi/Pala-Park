@@ -116,7 +116,8 @@ body,
 }
 
 #network-status,
-#server-target {
+#server-target,
+#room-slots {
   color: #c9d0df;
   font-size: 0.82rem;
 }
@@ -128,7 +129,8 @@ body,
   gap: 2px;
 }
 
-#server-target {
+#server-target,
+#room-slots {
   overflow: hidden;
   max-width: 260px;
   color: #8f9aad;

@@ -62,7 +62,8 @@ export class Game {
       onSessionStarted: (session) => {
         this.activePlayerIndex = this.playerIndexFromId(session.playerId);
         this.loadLevel(0);
-        document.querySelector("#objective")!.textContent = `Online nivel 1 - controlas ${session.playerId}`;
+        document.querySelector("#objective")!.textContent =
+          `Online nivel 1 - controlas ${session.playerId} - esperando 4 jugadores`;
       },
       onLevelReset: (message) => this.resetLevel(message)
     });
@@ -103,6 +104,13 @@ export class Game {
   };
 
   private fixedUpdate(): void {
+    if (this.online.isOnline && !this.online.isPlaying) {
+      document.querySelector("#objective")!.textContent =
+        `Esperando jugadores ${this.online.connectedPlayerCount}/${this.online.requiredPlayerCount}`;
+      this.tick += 1;
+      return;
+    }
+
     if (this.input.consumeResetPressed()) {
       if (this.online.isOnline) {
         this.online.requestReset("manual");

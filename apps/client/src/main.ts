@@ -30,6 +30,7 @@ async function bootstrap(): Promise<void> {
         <div class="network-info">
           <span id="network-status">Modo local</span>
           <span id="server-target">Servidor: detectando...</span>
+          <span id="room-slots">Sala: 0/4</span>
         </div>
       </section>
       <section class="controls" aria-label="Controles">
@@ -103,6 +104,7 @@ function setupNetworkUi(network: ClientSocket): void {
   const roomCode = document.querySelector<HTMLInputElement>("#room-code");
   const networkStatus = document.querySelector<HTMLSpanElement>("#network-status");
   const serverTarget = document.querySelector<HTMLSpanElement>("#server-target");
+  const roomSlots = document.querySelector<HTMLSpanElement>("#room-slots");
 
   if (serverTarget) {
     serverTarget.textContent = `Servidor: ${network.getServerUrl()}`;
@@ -124,6 +126,17 @@ function setupNetworkUi(network: ClientSocket): void {
     if (networkStatus) {
       networkStatus.textContent = message;
     }
+  });
+  network.onRoomState((roomState) => {
+    if (!roomSlots) {
+      return;
+    }
+
+    const connectedPlayers = roomState.players.filter((player) => player.connected).length;
+    roomSlots.textContent =
+      roomState.state === "PLAYING"
+        ? "Sala completa"
+        : `Sala: ${connectedPlayers}/${roomState.requiredPlayers}`;
   });
 }
 

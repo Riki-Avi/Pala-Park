@@ -1,4 +1,4 @@
-import type { LevelStatePayload, RoomJoinedPayload, RoomPlayer } from "@game/shared";
+import type { LevelStatePayload, RoomJoinedPayload, RoomPlayer, RoomStatePayload } from "@game/shared";
 import type { Player } from "../entities/Player";
 import type { LevelRuntime } from "../levels/LevelRuntime";
 import { ClientSocket } from "./ClientSocket";
@@ -12,6 +12,7 @@ interface OnlineSessionCallbacks {
 export class OnlineSessionController {
   private network: ClientSocket | null = null;
   private session: RoomJoinedPayload | null = null;
+  private roomState: RoomStatePayload | null = null;
   private readonly remotePlayerInterpolator = new RemotePlayerInterpolator();
   private pendingReset = false;
   private lastPoseSentTick = -1;
@@ -23,6 +24,7 @@ export class OnlineSessionController {
 
     network.onSession((session) => {
       this.session = session;
+      this.roomState = session.roomState;
       this.remotePlayerInterpolator.clear();
       this.pendingLevelState = session.levelState ?? null;
       callbacks.onSessionStarted(session);
@@ -31,6 +33,20 @@ export class OnlineSessionController {
     network.onPlayers((players) => {
       if (this.session) {
         this.session.players = players;
+      }
+    });
+
+    network.onRoomState((roomState) => {
+      this.roomState = roomState;
+      if (this.session) {
+        this.session.players = roomState.players;
+      }
+    });
+
+    network.onGameStarted((roomState) => {
+      this.roomState = roomState;
+      if (this.session) {
+        this.session.players = roomState.players;
       }
     });
 
@@ -65,12 +81,24 @@ export class OnlineSessionController {
     return this.session?.playerId === "p1";
   }
 
+  get isPlaying(): boolean {
+    return !this.session || this.roomState?.state === "PLAYING";
+  }
+
+  get connectedPlayerCount(): number {
+    return this.players.filter((player) => player.connected).length;
+  }
+
+  get requiredPlayerCount(): number {
+    return this.roomState?.requiredPlayers ?? 4;
+  }
+
   get players(): RoomPlayer[] {
     return this.session?.players ?? [];
   }
 
   sendPose(tick: number, player: Player, yaw: number): void {
-    if (!this.network || !this.session || tick === this.lastPoseSentTick || tick % 2 !== 0) {
+    if (!this.network || !this.session || !this.isPlaying || tick === this.lastPoseSentTick || tick % 2 !== 0) {
       return;
     }
 
@@ -79,7 +107,14 @@ export class OnlineSessionController {
   }
 
   sendLevelState(tick: number, level: LevelRuntime): void {
-    if (!this.network || !this.session || !this.isHost || tick === this.lastLevelStateSentTick || tick % 3 !== 0) {
+    if (
+      !this.network ||
+      !this.session ||
+      !this.isPlaying ||
+      !this.isHost ||
+      tick === this.lastLevelStateSentTick ||
+      tick % 3 !== 0
+    ) {
       return;
     }
 

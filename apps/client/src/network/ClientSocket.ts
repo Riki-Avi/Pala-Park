@@ -6,6 +6,7 @@ import type {
   PlayerPose,
   RoomJoinedPayload,
   RoomPlayer,
+  RoomStatePayload,
   ServerToClientEvents
 } from "@game/shared";
 
@@ -17,6 +18,8 @@ export class ClientSocket {
   private readonly serverUrl: string;
   private readonly sessionHandlers: Array<(session: RoomJoinedPayload) => void> = [];
   private readonly playersHandlers: Array<(players: RoomPlayer[]) => void> = [];
+  private readonly roomStateHandlers: Array<(payload: RoomStatePayload) => void> = [];
+  private readonly gameStartedHandlers: Array<(payload: RoomStatePayload) => void> = [];
   private readonly poseHandlers: Array<(pose: PlayerPose) => void> = [];
   private readonly levelStateHandlers: Array<(payload: LevelStatePayload) => void> = [];
   private readonly resetHandlers: Array<(payload: LevelResetPayload) => void> = [];
@@ -44,6 +47,15 @@ export class ClientSocket {
     this.socket.on("playerLeft", ({ players }) => {
       this.playersHandlers.forEach((handler) => handler(players));
       this.emitStatus(`Jugadores en sala: ${players.length}`);
+    });
+    this.socket.on("roomState", (payload) => {
+      this.roomStateHandlers.forEach((handler) => handler(payload));
+      this.emitLobbyStatus(payload);
+    });
+    this.socket.on("gameStarted", (payload) => {
+      this.roomStateHandlers.forEach((handler) => handler(payload));
+      this.gameStartedHandlers.forEach((handler) => handler(payload));
+      this.emitStatus("Partida iniciada");
     });
     this.socket.on("playerPose", (pose) => this.poseHandlers.forEach((handler) => handler(pose)));
     this.socket.on("levelState", (payload) => this.levelStateHandlers.forEach((handler) => handler(payload)));
@@ -84,6 +96,14 @@ export class ClientSocket {
     this.playersHandlers.push(handler);
   }
 
+  onRoomState(handler: (payload: RoomStatePayload) => void): void {
+    this.roomStateHandlers.push(handler);
+  }
+
+  onGameStarted(handler: (payload: RoomStatePayload) => void): void {
+    this.gameStartedHandlers.push(handler);
+  }
+
   onPlayerPose(handler: (pose: PlayerPose) => void): void {
     this.poseHandlers.push(handler);
   }
@@ -103,11 +123,21 @@ export class ClientSocket {
   private handleSession(session: RoomJoinedPayload): void {
     this.sessionHandlers.forEach((handler) => handler(session));
     this.playersHandlers.forEach((handler) => handler(session.players));
-    this.emitStatus(`Sala ${session.roomCode} - sos ${session.playerId}`);
+    this.roomStateHandlers.forEach((handler) => handler(session.roomState));
+    this.emitLobbyStatus(session.roomState, `Sala ${session.roomCode} - sos ${session.playerId}`);
   }
 
   private emitStatus(message: string): void {
     this.statusHandlers.forEach((handler) => handler(message));
+  }
+
+  private emitLobbyStatus(payload: RoomStatePayload, prefix?: string): void {
+    const connectedPlayers = payload.players.filter((player) => player.connected).length;
+    const state =
+      payload.state === "PLAYING"
+        ? "Partida iniciada"
+        : `Esperando jugadores ${connectedPlayers}/${payload.requiredPlayers}`;
+    this.emitStatus(prefix ? `${prefix} - ${state}` : state);
   }
 }
 

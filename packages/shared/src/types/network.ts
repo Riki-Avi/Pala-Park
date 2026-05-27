@@ -16,12 +16,21 @@ export interface GameSnapshot {
 
 export interface RoomPlayer {
   id: string;
+  connected: boolean;
+}
+
+export interface RoomStatePayload {
+  roomCode: string;
+  state: RoomLifecycleState;
+  players: RoomPlayer[];
+  requiredPlayers: number;
 }
 
 export interface RoomJoinedPayload {
   roomCode: string;
   playerId: string;
   players: RoomPlayer[];
+  roomState: RoomStatePayload;
   levelState?: LevelStatePayload;
 }
 
@@ -80,6 +89,8 @@ export interface ServerToClientEvents {
   roomJoined: (payload: RoomJoinedPayload) => void;
   playerJoined: (payload: { playerId: string; players: RoomPlayer[] }) => void;
   playerLeft: (payload: { playerId: string; players: RoomPlayer[] }) => void;
+  roomState: (payload: RoomStatePayload) => void;
+  gameStarted: (payload: RoomStatePayload) => void;
   playerPose: (payload: PlayerPose) => void;
   levelState: (payload: LevelStatePayload) => void;
   levelReset: (payload: LevelResetPayload) => void;

@@ -32,8 +32,10 @@ async function bootstrap(): Promise<void> {
         roomCode: room.roomCode,
         playerId,
         players: room.getPlayers(),
+        roomState: room.getRoomState(),
         levelState: room.levelState ?? undefined
       });
+      io.to(room.roomCode).emit("roomState", room.getRoomState());
     });
 
     socket.on("joinRoom", ({ roomCode, clientId }: { roomCode: string; clientId: string }) => {
@@ -61,9 +63,14 @@ async function bootstrap(): Promise<void> {
         roomCode: room.roomCode,
         playerId,
         players: room.getPlayers(),
+        roomState: room.getRoomState(),
         levelState: room.levelState ?? undefined
       });
       socket.to(room.roomCode).emit("playerJoined", { playerId, players: room.getPlayers() });
+      io.to(room.roomCode).emit("roomState", room.getRoomState());
+      if (room.state === "PLAYING") {
+        io.to(room.roomCode).emit("gameStarted", room.getRoomState());
+      }
     });
 
     socket.on("playerPose", (pose: PlayerPose) => {
@@ -118,6 +125,7 @@ async function bootstrap(): Promise<void> {
 
       room.disconnectPlayer(playerId);
       socket.to(room.roomCode).emit("playerLeft", { playerId, players: room.getPlayers() });
+      io.to(room.roomCode).emit("roomState", room.getRoomState());
     });
   });
 
