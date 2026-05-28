@@ -1,4 +1,3 @@
-import { MAX_PLAYERS_PER_ROOM } from "@game/shared";
 import { GameRoom } from "./GameRoom";
 import { generateRoomCode } from "./RoomCodeGenerator";
 
@@ -18,11 +17,11 @@ export class RoomManager {
   }
 
   joinRoom(roomCode: string): GameRoom | null {
-    const room = this.rooms.get(roomCode.toUpperCase());
-    if (!room || room.players.size >= MAX_PLAYERS_PER_ROOM || room.state !== "WAITING") {
-      return null;
-    }
-    return room;
+    return this.getRoom(roomCode);
+  }
+
+  getRoom(roomCode: string): GameRoom | null {
+    return this.rooms.get(roomCode.toUpperCase()) ?? null;
   }
 
   findRoomBySocket(socketId: string): GameRoom | null {
@@ -36,14 +35,7 @@ export class RoomManager {
   }
 
   nextPlayerId(room: GameRoom): string | null {
-    for (let index = 1; index <= MAX_PLAYERS_PER_ROOM; index += 1) {
-      const playerId = `p${index}`;
-      if (!room.players.has(playerId)) {
-        return playerId;
-      }
-    }
-
-    return null;
+    return room.nextAvailablePlayerId();
   }
 
   fixedUpdate(): void {

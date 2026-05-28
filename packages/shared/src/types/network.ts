@@ -24,6 +24,7 @@ export interface RoomStatePayload {
   state: RoomLifecycleState;
   players: RoomPlayer[];
   requiredPlayers: number;
+  hostPlayerId: string;
 }
 
 export interface RoomJoinedPayload {

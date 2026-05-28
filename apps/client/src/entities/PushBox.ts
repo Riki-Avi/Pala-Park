@@ -54,8 +54,28 @@ export class PushBox {
     };
   }
 
-  applyState(state: BoxState): void {
-    this.body.setTranslation(state.position, true);
+  applyState(state: BoxState, smoothing = 1): void {
+    if (smoothing >= 1) {
+      this.body.setTranslation(state.position, true);
+      this.body.setLinvel(state.velocity, true);
+      return;
+    }
+
+    const current = this.body.translation();
+    const distance = Math.hypot(
+      state.position.x - current.x,
+      state.position.y - current.y,
+      state.position.z - current.z
+    );
+
+    const alpha = distance > 2.5 ? 1 : smoothing;
+    const nextPosition = {
+      x: current.x + (state.position.x - current.x) * alpha,
+      y: current.y + (state.position.y - current.y) * alpha,
+      z: current.z + (state.position.z - current.z) * alpha
+    };
+
+    this.body.setTranslation(nextPosition, true);
     this.body.setLinvel(state.velocity, true);
   }
 

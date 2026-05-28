@@ -94,7 +94,11 @@ export class OnlineSessionController {
   }
 
   get isHost(): boolean {
-    return this.session?.playerId === "p1";
+    return Boolean(
+      this.session &&
+        this.roomState &&
+        this.session.playerId === this.roomState.hostPlayerId
+    );
   }
 
   get isPlaying(): boolean {

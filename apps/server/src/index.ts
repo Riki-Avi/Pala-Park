@@ -1,5 +1,5 @@
 import RAPIER from "@dimforge/rapier3d-compat";
-import type { GoalProgressPayload, LevelStatePayload, PlayerPose } from "@game/shared";
+import type { GoalProgressPayload, LevelStatePayload, PlayerPose, RoomJoinedPayload } from "@game/shared";
 import { Server as SocketServer } from "socket.io";
 import { ServerGameLoop } from "./core/ServerGameLoop";
 import { RoomManager } from "./rooms/RoomManager";
@@ -17,8 +17,49 @@ async function bootstrap(): Promise<void> {
     }
   });
 
+  const buildSessionPayload = (roomCode: string, playerId: string): RoomJoinedPayload | null => {
+    const room = rooms.getRoom(roomCode);
+    if (!room) {
+      return null;
+    }
+
+    return {
+      roomCode: room.roomCode,
+      playerId,
+      players: room.getPlayers(),
+      roomState: room.getRoomState(),
+      levelState: room.levelState ?? undefined,
+      goalProgress: room.goalProgress ?? undefined
+    };
+  };
+
+  const emitRoomState = (roomCode: string): void => {
+    const room = rooms.getRoom(roomCode);
+    if (room) {
+      io.to(room.roomCode).emit("roomState", room.getRoomState());
+    }
+  };
+
+  const emitGameStarted = (roomCode: string): void => {
+    const room = rooms.getRoom(roomCode);
+    if (room) {
+      io.to(room.roomCode).emit("gameStarted", room.getRoomState());
+    }
+  };
+
   io.on("connection", (socket) => {
-    socket.on("createRoom", ({ clientId }: { clientId: string }) => {
+    socket.on("createRoom", (payload: { clientId: string }) => {
+      const clientId = payload?.clientId;
+      if (!isValidClientId(clientId)) {
+        socket.emit("errorMessage", { message: "Cliente invalido." });
+        return;
+      }
+
+      if (rooms.findRoomBySocket(socket.id)) {
+        socket.emit("errorMessage", { message: "Ya estas en una sala." });
+        return;
+      }
+
       const room = rooms.createRoom();
       const playerId = rooms.nextPlayerId(room);
       if (!playerId) {
@@ -26,23 +67,34 @@ async function bootstrap(): Promise<void> {
         return;
       }
 
-      room.addPlayer(playerId, socket.id, clientId);
+      const started = room.addPlayer(playerId, socket.id, clientId);
       socket.join(room.roomCode);
-      socket.emit("roomCreated", {
-        roomCode: room.roomCode,
-        playerId,
-        players: room.getPlayers(),
-        roomState: room.getRoomState(),
-        levelState: room.levelState ?? undefined,
-        goalProgress: room.goalProgress ?? undefined
-      });
-      io.to(room.roomCode).emit("roomState", room.getRoomState());
+      const session = buildSessionPayload(room.roomCode, playerId);
+      if (session) {
+        socket.emit("roomCreated", session);
+      }
+      emitRoomState(room.roomCode);
+      if (started) {
+        emitGameStarted(room.roomCode);
+      }
     });
 
-    socket.on("joinRoom", ({ roomCode, clientId }: { roomCode: string; clientId: string }) => {
+    socket.on("joinRoom", (payload: { roomCode: string; clientId: string }) => {
+      const roomCode = payload?.roomCode;
+      const clientId = payload?.clientId;
+      if (!isValidRoomCode(roomCode) || !isValidClientId(clientId)) {
+        socket.emit("errorMessage", { message: "Datos de sala invalidos." });
+        return;
+      }
+
+      if (rooms.findRoomBySocket(socket.id)) {
+        socket.emit("errorMessage", { message: "Ya estas en una sala." });
+        return;
+      }
+
       const room = rooms.joinRoom(roomCode);
       if (!room) {
-        socket.emit("errorMessage", { message: "No se pudo entrar a la sala." });
+        socket.emit("errorMessage", { message: "La sala no existe." });
         return;
       }
 
@@ -52,33 +104,41 @@ async function bootstrap(): Promise<void> {
         return;
       }
 
+      const isReconnect = room.canReconnect(clientId);
+      if (!isReconnect && !room.canAcceptNewPlayer()) {
+        socket.emit("errorMessage", { message: "La sala ya empezo o esta llena." });
+        return;
+      }
+
       const playerId = existingPlayerId ?? rooms.nextPlayerId(room);
       if (!playerId) {
         socket.emit("errorMessage", { message: "La sala esta llena." });
         return;
       }
 
-      room.addPlayer(playerId, socket.id, clientId);
+      const started = room.addPlayer(playerId, socket.id, clientId);
       socket.join(room.roomCode);
-      socket.emit("roomJoined", {
-        roomCode: room.roomCode,
-        playerId,
-        players: room.getPlayers(),
-        roomState: room.getRoomState(),
-        levelState: room.levelState ?? undefined,
-        goalProgress: room.goalProgress ?? undefined
-      });
+      const session = buildSessionPayload(room.roomCode, playerId);
+      if (session) {
+        socket.emit("roomJoined", session);
+      }
       socket.to(room.roomCode).emit("playerJoined", { playerId, players: room.getPlayers() });
-      io.to(room.roomCode).emit("roomState", room.getRoomState());
-      if (room.state === "PLAYING") {
-        io.to(room.roomCode).emit("gameStarted", room.getRoomState());
+      emitRoomState(room.roomCode);
+      if (started) {
+        emitGameStarted(room.roomCode);
+      } else if (room.state === "PLAYING") {
+        socket.emit("gameStarted", room.getRoomState());
       }
     });
 
     socket.on("playerPose", (pose: PlayerPose) => {
+      if (!isValidPlayerPose(pose)) {
+        return;
+      }
+
       const room = rooms.findRoomBySocket(socket.id);
       const playerId = room?.getPlayerIdBySocket(socket.id);
-      if (!room || !playerId || pose.playerId !== playerId) {
+      if (!room || !playerId || room.state !== "PLAYING" || pose.playerId !== playerId) {
         return;
       }
 
@@ -86,9 +146,13 @@ async function bootstrap(): Promise<void> {
     });
 
     socket.on("levelState", (payload: LevelStatePayload) => {
+      if (!isValidRoomCode(payload?.roomCode)) {
+        return;
+      }
+
       const room = rooms.findRoomBySocket(socket.id);
       const playerId = room?.getPlayerIdBySocket(socket.id);
-      if (!room || playerId !== "p1" || payload.roomCode !== room.roomCode) {
+      if (!room || !playerId || !room.canReceiveHostState(playerId, payload.roomCode)) {
         return;
       }
 
@@ -97,9 +161,13 @@ async function bootstrap(): Promise<void> {
     });
 
     socket.on("goalProgress", (payload: GoalProgressPayload) => {
+      if (!isValidRoomCode(payload?.roomCode)) {
+        return;
+      }
+
       const room = rooms.findRoomBySocket(socket.id);
       const playerId = room?.getPlayerIdBySocket(socket.id);
-      if (!room || playerId !== "p1" || payload.roomCode !== room.roomCode) {
+      if (!room || !playerId || !room.canReceiveHostState(playerId, payload.roomCode)) {
         return;
       }
 
@@ -107,20 +175,35 @@ async function bootstrap(): Promise<void> {
       socket.to(room.roomCode).emit("goalProgress", payload);
     });
 
-    socket.on("resetLevel", ({ reason }: { reason: "fall" | "manual" }) => {
+    socket.on("requestStartGame", () => {
+      const room = rooms.findRoomBySocket(socket.id);
+      const playerId = room?.getPlayerIdBySocket(socket.id);
+      if (!room || !playerId || playerId !== room.hostPlayerId) {
+        return;
+      }
+
+      const started = room.startGame();
+      if (started) {
+        emitGameStarted(room.roomCode);
+      }
+    });
+
+    socket.on("resetLevel", (payload: { reason: "fall" | "manual" }) => {
+      const reason = payload?.reason;
+      if (reason !== "fall" && reason !== "manual") {
+        return;
+      }
+
       const room = rooms.findRoomBySocket(socket.id);
       const playerId = room?.getPlayerIdBySocket(socket.id);
       if (!room || !playerId) {
         return;
       }
 
-      const now = Date.now();
-      if (now - room.lastResetAt < 800) {
+      if (!room.canReset(Date.now())) {
         return;
       }
-      room.lastResetAt = now;
-      room.levelState = null;
-      room.goalProgress = null;
+      room.clearSyncedState();
 
       io.to(room.roomCode).emit("levelReset", {
         roomCode: room.roomCode,
@@ -147,6 +230,32 @@ async function bootstrap(): Promise<void> {
   loop.start();
 
   console.log(`Pala Park server listening on ${port}`);
+}
+
+function isValidClientId(clientId: unknown): clientId is string {
+  return typeof clientId === "string" && clientId.trim().length > 0 && clientId.length <= 128;
+}
+
+function isValidRoomCode(roomCode: unknown): roomCode is string {
+  return typeof roomCode === "string" && /^[A-Z0-9]{4,8}$/i.test(roomCode.trim());
+}
+
+function isValidPlayerPose(pose: PlayerPose | null | undefined): pose is PlayerPose {
+  return (
+    Boolean(pose) &&
+    typeof pose?.playerId === "string" &&
+    isFiniteNumber(pose.position?.x) &&
+    isFiniteNumber(pose.position?.y) &&
+    isFiniteNumber(pose.position?.z) &&
+    isFiniteNumber(pose.velocity?.x) &&
+    isFiniteNumber(pose.velocity?.y) &&
+    isFiniteNumber(pose.velocity?.z) &&
+    isFiniteNumber(pose.yaw)
+  );
+}
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
 }
 
 bootstrap().catch((error) => {

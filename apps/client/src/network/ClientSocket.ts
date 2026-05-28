@@ -91,6 +91,10 @@ export class ClientSocket {
     this.socket.emit("resetLevel", { reason });
   }
 
+  startGame(): void {
+    this.socket.emit("requestStartGame");
+  }
+
   getServerUrl(): string {
     return this.serverUrl;
   }

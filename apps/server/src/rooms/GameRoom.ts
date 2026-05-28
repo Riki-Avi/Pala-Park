@@ -17,20 +17,47 @@ export class GameRoom {
   goalProgress: GoalProgressPayload | null = null;
   state: RoomLifecycleState = "WAITING";
   tick = 0;
+  hostPlayerId = "p1";
 
   constructor(readonly roomCode: string) {}
 
-  addPlayer(playerId: string, socketId: string, clientId: string): void {
+  updateHost(): void {
+    if (this.players.has(this.hostPlayerId)) {
+      return;
+    }
+    for (let index = 1; index <= MAX_PLAYERS_PER_ROOM; index += 1) {
+      const id = `p${index}`;
+      if (this.players.has(id)) {
+        this.hostPlayerId = id;
+        return;
+      }
+    }
+  }
+
+  addPlayer(playerId: string, socketId: string, clientId: string): boolean {
+    const wasWaiting = this.state === "WAITING";
     this.players.set(playerId, socketId);
     this.clientIds.set(playerId, clientId);
     this.disconnectedAt.delete(playerId);
-    if (this.clientIds.size >= MAX_PLAYERS_PER_ROOM) {
+    if (wasWaiting && this.clientIds.size >= MAX_PLAYERS_PER_ROOM) {
       this.state = "PLAYING";
     }
+    this.updateHost();
+
+    return wasWaiting && this.state === "PLAYING";
+  }
+
+  startGame(): boolean {
+    if (this.state === "WAITING" && this.clientIds.size > 0) {
+      this.state = "PLAYING";
+      return true;
+    }
+    return false;
   }
 
   removePlayer(playerId: string): void {
     this.players.delete(playerId);
+    this.updateHost();
     if (this.players.size === 0) {
       this.state = "CLOSED";
     }
@@ -39,6 +66,7 @@ export class GameRoom {
   disconnectPlayer(playerId: string): void {
     this.players.delete(playerId);
     this.disconnectedAt.set(playerId, Date.now());
+    this.updateHost();
   }
 
   fixedUpdate(): void {
@@ -69,7 +97,8 @@ export class GameRoom {
       roomCode: this.roomCode,
       state: this.state,
       players: this.getPlayers(),
-      requiredPlayers: MAX_PLAYERS_PER_ROOM
+      requiredPlayers: MAX_PLAYERS_PER_ROOM,
+      hostPlayerId: this.hostPlayerId
     };
   }
 
@@ -87,6 +116,52 @@ export class GameRoom {
     return this.players.has(playerId);
   }
 
+  hasPlayerSlot(playerId: string): boolean {
+    return this.clientIds.has(playerId);
+  }
+
+  hasOpenSlot(): boolean {
+    return this.clientIds.size < MAX_PLAYERS_PER_ROOM;
+  }
+
+  canAcceptNewPlayer(): boolean {
+    return this.state === "WAITING" && this.hasOpenSlot();
+  }
+
+  canReconnect(clientId: string): boolean {
+    const playerId = this.getPlayerIdByClient(clientId);
+    return Boolean(playerId && !this.isPlayerConnected(playerId));
+  }
+
+  nextAvailablePlayerId(): string | null {
+    for (let index = 1; index <= MAX_PLAYERS_PER_ROOM; index += 1) {
+      const playerId = `p${index}`;
+      if (!this.hasPlayerSlot(playerId)) {
+        return playerId;
+      }
+    }
+
+    return null;
+  }
+
+  canReceiveHostState(playerId: string, roomCode: string): boolean {
+    return this.state === "PLAYING" && playerId === this.hostPlayerId && roomCode === this.roomCode;
+  }
+
+  canReset(now: number): boolean {
+    if (this.state !== "PLAYING" || now - this.lastResetAt < 800) {
+      return false;
+    }
+
+    this.lastResetAt = now;
+    return true;
+  }
+
+  clearSyncedState(): void {
+    this.levelState = null;
+    this.goalProgress = null;
+  }
+
   pruneDisconnected(maxAgeMs: number): void {
     const now = Date.now();
     for (const [playerId, disconnectedAt] of this.disconnectedAt) {
@@ -97,6 +172,7 @@ export class GameRoom {
       this.disconnectedAt.delete(playerId);
       this.clientIds.delete(playerId);
     }
+    this.updateHost();
 
     if (this.players.size === 0 && this.clientIds.size === 0) {
       this.state = "CLOSED";

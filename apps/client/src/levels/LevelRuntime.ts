@@ -103,7 +103,7 @@ export class LevelRuntime {
     }
 
     for (const boxState of state.boxes) {
-      this.boxes.find((box) => box.definition.id === boxState.id)?.applyState(boxState);
+      this.boxes.find((box) => box.definition.id === boxState.id)?.applyState(boxState, 0.28);
     }
 
     for (const buttonState of state.buttons) {

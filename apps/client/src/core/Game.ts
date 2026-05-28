@@ -1,12 +1,10 @@
 import * as THREE from "three";
-import { FIXED_DELTA, type Vec3 } from "@game/shared";
+import { FIXED_DELTA, type LevelDefinition, type Vec3 } from "@game/shared";
 import { GameRulesController } from "./GameRulesController";
 import { Player } from "../entities/Player";
 import { InputManager } from "../input/InputManager";
 import { createEmptyInput } from "../input/InputState";
 import { LevelController } from "../levels/LevelController";
-import { level01 } from "../levels/level-01";
-import { level02 } from "../levels/level-02";
 import { ClientSocket } from "../network/ClientSocket";
 import { OnlineSessionController } from "../network/OnlineSessionController";
 import { PhysicsWorld } from "../physics/PhysicsWorld";
@@ -32,7 +30,7 @@ export class Game {
   private fpsTimer = 0;
   private animationFrame = 0;
 
-  constructor(private readonly canvas: HTMLCanvasElement) {
+  constructor(private readonly canvas: HTMLCanvasElement, levels: LevelDefinition[]) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.shadowMap.enabled = true;
@@ -42,7 +40,7 @@ export class Game {
     this.scene.fog = new THREE.Fog("#20242c", 20, 60);
 
     this.setupLighting();
-    this.levelController = new LevelController([level01, level02], this.scene, this.physics.world, 1);
+    this.levelController = new LevelController(levels, this.scene, this.physics.world, 1);
     this.createPlayers(this.level.definition.spawnPoints);
     this.input.enablePointerLook(this.canvas);
     this.setupSensitivityControl();
