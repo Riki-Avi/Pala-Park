@@ -5,7 +5,7 @@ import { Button } from "../entities/Button";
 import { Door } from "../entities/Door";
 import { GoalZone } from "../entities/GoalZone";
 import { PushBox } from "../entities/PushBox";
-import { createBox, standardMaterials } from "../render/MeshFactory";
+import { createBox, createButtonMesh, standardMaterials } from "../render/MeshFactory";
 
 interface PhysicsObject {
   body: RAPIER.RigidBody;
@@ -157,10 +157,31 @@ export class LevelRuntime {
     }
   }
 
+  private getFloorHeightAt(x: number, z: number): number {
+    let maxHeight = -999;
+    for (const platform of this.definition.platforms) {
+      const halfX = platform.size.x / 2;
+      const halfZ = platform.size.z / 2;
+      if (
+        x >= platform.position.x - halfX &&
+        x <= platform.position.x + halfX &&
+        z >= platform.position.z - halfZ &&
+        z <= platform.position.z + halfZ
+      ) {
+        const top = platform.position.y + platform.size.y / 2;
+        if (top > maxHeight) {
+          maxHeight = top;
+        }
+      }
+    }
+    return maxHeight === -999 ? 0 : maxHeight;
+  }
+
   private createButtons(): void {
     for (const definition of this.definition.buttons) {
-      const mesh = createBox(definition.size, standardMaterials.button);
-      mesh.position.set(definition.position.x, definition.position.y, definition.position.z);
+      const mesh = createButtonMesh(definition.size, standardMaterials.button);
+      const floorY = this.getFloorHeightAt(definition.position.x, definition.position.z);
+      mesh.position.set(definition.position.x, floorY, definition.position.z);
       this.scene.add(mesh);
       this.objects.push(mesh);
       this.buttons.push(new Button(definition, mesh));

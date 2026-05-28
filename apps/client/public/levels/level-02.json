@@ -14,17 +14,17 @@
     { "x": -9.2, "y": 2, "z": 2.1 }
   ],
   "platforms": [
-    { "id": "start", "position": { "x": -7.2, "y": 0, "z": 0 }, "size": { "x": 6.2, "y": 0.6, "z": 7 } },
+    { "id": "start", "position": { "x": -11.2, "y": 0, "z": 0 }, "size": { "x": 6.2, "y": 0.6, "z": 7 } },
     { "id": "parkour-01", "position": { "x": -3.4, "y": 0.7, "z": -1.9 }, "size": { "x": 2.2, "y": 0.45, "z": 1.8 } },
-    { "id": "parkour-02", "position": { "x": -0.6, "y": 1.35, "z": 1.6 }, "size": { "x": 2, "y": 0.45, "z": 1.8 } },
+    { "id": "parkour-02", "position": { "x": -0.6, "y": 1.35, "z": 1.6 }, "size": { "x": 2, "y": 0.45, "z": 0.8 } },
     { "id": "parkour-03", "position": { "x": 2.1, "y": 2.1, "z": -0.8 }, "size": { "x": 2, "y": 0.45, "z": 1.8 } },
-    { "id": "box-shelf", "position": { "x": 5.6, "y": 5.85, "z": 0 }, "size": { "x": 3.4, "y": 0.5, "z": 3.4 } },
-    { "id": "main-floor", "position": { "x": 3.7, "y": 0, "z": 0 }, "size": { "x": 9.4, "y": 0.6, "z": 7 } },
+    { "id": "box-shelf", "position": { "x": 5.6, "y": 6.85, "z": 0 }, "size": { "x": 3.4, "y": 0.5, "z": 3.4 } },
+    { "id": "main-floor", "position": { "x": 5.7, "y": 0, "z": 0 }, "size": { "x": 5.4, "y": 0.6, "z": 6 } },
     { "id": "button-pad", "position": { "x": 7.2, "y": 0.15, "z": -2.25 }, "size": { "x": 2.2, "y": 0.3, "z": 2.2 } },
     { "id": "goal-pad", "position": { "x": 12.5, "y": 0, "z": 0 }, "size": { "x": 4, "y": 0.6, "z": 5 } }
   ],
   "boxes": [
-    { "id": "box-02", "position": { "x": 5.6, "y": 6.75, "z": 0 }, "size": { "x": 1.15, "y": 1.15, "z": 1.15 } }
+    { "id": "box-02", "position": { "x": 5.6, "y": 8.75, "z": 0 }, "size": { "x": 1.15, "y": 1.15, "z": 1.15 } }
   ],
   "buttons": [
     {
@@ -36,7 +36,7 @@
     }
   ],
   "doors": [
-    { "id": "door-02", "position": { "x": 9.6, "y": 1.15, "z": 0 }, "size": { "x": 0.45, "y": 2.25, "z": 4.2 } }
+    { "id": "door-02", "position": { "x": 9.6, "y": 1.15, "z": 0 }, "size": { "x": 0.45, "y": 2.25, "z": 12.2 } }
   ],
   "goalZones": [
     {

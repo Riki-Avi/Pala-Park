@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { FIXED_DELTA, type LevelDefinition, type Vec3 } from "@game/shared";
 import { GameRulesController } from "./GameRulesController";
+import { AudioManager } from "./AudioManager";
 import { Player } from "../entities/Player";
 import { InputManager } from "../input/InputManager";
 import { createEmptyInput } from "../input/InputState";
@@ -128,7 +129,7 @@ export class Game {
       }
 
       const playerInput = isActivePlayer ? this.input.getPrimaryInput() : createEmptyInput();
-      player.applyInput(playerInput, this.input.yaw, isActivePlayer, FIXED_DELTA);
+      player.applyInput(playerInput, this.input.yaw, this.input.pitch, isActivePlayer, FIXED_DELTA);
     }
 
     this.physics.step();
@@ -162,10 +163,6 @@ export class Game {
     sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048);
     this.scene.add(sun);
-
-    const grid = new THREE.GridHelper(42, 42, "#3d4654", "#2a313b");
-    grid.position.y = 0.31;
-    this.scene.add(grid);
   }
 
   private updateGoal(): void {
@@ -177,6 +174,7 @@ export class Game {
       }
     }
 
+    const previousTimer = this.levelAdvanceTimer;
     const result = this.rules.updateGoal(
       this.players,
       this.level,
@@ -185,6 +183,10 @@ export class Game {
     );
     this.levelAdvanceTimer = result.timer;
     const progress = this.getGoalProgress();
+
+    if (previousTimer < 0 && this.levelAdvanceTimer >= 0) {
+      AudioManager.playVictory();
+    }
 
     if (result.shouldAdvance) {
       this.loadNextLevel();
@@ -196,8 +198,13 @@ export class Game {
   }
 
   private updateGoalFromProgress(completed: boolean): void {
+    const previousTimer = this.levelAdvanceTimer;
     if (completed && this.level.definition.rules.autoAdvanceOnComplete && this.levelAdvanceTimer < 0) {
-      this.levelAdvanceTimer = 0.8;
+      this.levelAdvanceTimer = 3.0; // 3 segundos de espera para clientes online
+    }
+
+    if (previousTimer < 0 && this.levelAdvanceTimer >= 0) {
+      AudioManager.playVictory();
     }
 
     if (this.levelAdvanceTimer >= 0) {

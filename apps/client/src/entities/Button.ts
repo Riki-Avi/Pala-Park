@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import type { ButtonDefinition, Vec3 } from "@game/shared";
 import { standardMaterials } from "../render/MeshFactory";
+import { AudioManager } from "../core/AudioManager";
 
 export class Button {
   pressed = false;
@@ -23,6 +24,9 @@ export class Button {
   }
 
   setPressed(pressed: boolean): void {
+    if (!this.pressed && pressed) {
+      AudioManager.playButton();
+    }
     this.pressed = pressed;
     this.mesh.material = this.pressed ? standardMaterials.buttonPressed : standardMaterials.button;
     this.mesh.scale.y = this.pressed ? 0.45 : 1;

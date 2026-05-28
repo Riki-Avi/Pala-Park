@@ -92,7 +92,7 @@ export class GameRulesController {
     let shouldAdvance = false;
 
     if (allInGoal && level.definition.rules.autoAdvanceOnComplete && nextTimer < 0) {
-      nextTimer = 0.8;
+      nextTimer = 3.0;
     }
 
     if (nextTimer >= 0) {

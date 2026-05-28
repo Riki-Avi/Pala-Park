@@ -1,7 +1,7 @@
 {
   "id": "level-01",
   "name": "Escalera humana",
-  "objective": "Hagan una escalera de 3, bajen la caja y llevenla al boton",
+  "objective": "Pasen el nivel",
   "rules": {
     "resetOnAnyPlayerFall": true,
     "respawnBoxesFromSky": true,
@@ -17,10 +17,10 @@
     { "id": "start-floor", "position": { "x": -4.2, "y": 0, "z": 0 }, "size": { "x": 12, "y": 0.6, "z": 7 } },
     { "id": "door-floor", "position": { "x": 8.2, "y": 0, "z": 0 }, "size": { "x": 10, "y": 0.6, "z": 7 } },
     { "id": "button-pad", "position": { "x": 2.2, "y": 0.15, "z": -2.2 }, "size": { "x": 2.2, "y": 0.3, "z": 2.2 } },
-    { "id": "box-shelf", "position": { "x": -0.8, "y": 2.45, "z": 0 }, "size": { "x": 3.2, "y": 0.5, "z": 3.2 } }
+    { "id": "box-shelf", "position": { "x": -0.8, "y": 4.0, "z": 0 }, "size": { "x": 3.2, "y": 0.5, "z": 3.2 } }
   ],
   "boxes": [
-    { "id": "box-01", "position": { "x": -0.8, "y": 3.35, "z": 0 }, "size": { "x": 1.15, "y": 1.15, "z": 1.15 } }
+    { "id": "box-01", "position": { "x": -0.8, "y": 4.9, "z": 0 }, "size": { "x": 1.15, "y": 1.15, "z": 1.15 } }
   ],
   "buttons": [
     {
@@ -32,7 +32,7 @@
     }
   ],
   "doors": [
-    { "id": "door-01", "position": { "x": 4.4, "y": 1.15, "z": 0 }, "size": { "x": 0.45, "y": 2.25, "z": 4.2 } }
+    { "id": "door-01", "position": { "x": 4.4, "y": 1.15, "z": 0 }, "size": { "x": 0.45, "y": 2.25, "z": 12 } }
   ],
   "goalZones": [
     {

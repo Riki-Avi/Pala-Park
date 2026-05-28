@@ -20,6 +20,8 @@ export class Player implements NetworkedEntity<PlayerSnapshot> {
   isGrounded = false;
   inGoal = false;
   lastProcessedInput = 0;
+  lookYaw = 0;
+  lookPitch = 0;
   private visualYaw = 0;
   private coyoteTimer = 0;
   private jumpBufferTimer = 0;
@@ -48,7 +50,7 @@ export class Player implements NetworkedEntity<PlayerSnapshot> {
     world.createCollider(collider, this.body);
   }
 
-  applyInput(input: LocalInputState, yaw = 0, cameraRelative = false, delta = 1 / 60): void {
+  applyInput(input: LocalInputState, yaw = 0, pitch = 0, cameraRelative = false, delta = 1 / 60): void {
     const velocity = this.body.linvel();
     let x = 0;
     let z = 0;
@@ -66,15 +68,21 @@ export class Player implements NetworkedEntity<PlayerSnapshot> {
     let worldZ = normalizedZ;
 
     if (cameraRelative) {
+      this.lookYaw = yaw;
+      this.lookPitch = pitch;
+      this.visualYaw = yaw; // El cuerpo sigue siempre la dirección del mouse (cámara)
       const forwardX = -Math.sin(yaw);
       const forwardZ = -Math.cos(yaw);
       const rightX = Math.cos(yaw);
       const rightZ = -Math.sin(yaw);
       worldX = rightX * normalizedX + forwardX * -normalizedZ;
       worldZ = rightZ * normalizedX + forwardZ * -normalizedZ;
+    } else {
+      this.lookYaw = this.visualYaw;
+      this.lookPitch = 0;
     }
 
-    if (x !== 0 || z !== 0) {
+    if (!cameraRelative && (x !== 0 || z !== 0)) {
       this.visualYaw = Math.atan2(worldX, -worldZ);
     }
 
@@ -134,6 +142,149 @@ export class Player implements NetworkedEntity<PlayerSnapshot> {
     this.mesh.position.set(translation.x, translation.y, translation.z);
     this.mesh.quaternion.set(rotation.x, rotation.y, rotation.z, rotation.w);
     this.mesh.rotation.y = this.visualYaw;
+
+    // Animar patas y cola en base al estado de movimiento y salto
+    const legFL = this.mesh.getObjectByName("legFL");
+    const legFR = this.mesh.getObjectByName("legFR");
+    const legBL = this.mesh.getObjectByName("legBL");
+    const legBR = this.mesh.getObjectByName("legBR");
+    const tail = this.mesh.getObjectByName("tail");
+    const bodyMesh = this.mesh.getObjectByName("body");
+
+    const velocity = this.body.linvel();
+    const speed = Math.hypot(velocity.x, velocity.z);
+    const time = Date.now() * 0.008;
+
+    if (!this.isGrounded) {
+      // Animación en el aire (salto o caída)
+      const jumpYOffset = 0.05; // Las patas se encogen un poco hacia el cuerpo
+      const kickSpeed = Date.now() * 0.035; // Pataleo rápido y tierno
+      
+      if (velocity.y > 1.0) {
+        // --- SUBIENDO: Salto heroico ---
+        // El cuerpo se inclina ligeramente hacia arriba
+        const t = Math.min(velocity.y / PLAYER_JUMP_SPEED, 1.0);
+        const bodyPitch = -0.15 * t;
+        
+        if (bodyMesh) {
+          bodyMesh.rotation.set(bodyPitch, 0, 0);
+          bodyMesh.position.y = 0.1;
+        }
+
+        // Las patitas delanteras se estiran al frente, las traseras hacia atrás
+        if (legFL) {
+          legFL.position.set(-0.2, -0.4 + jumpYOffset, -0.2);
+          legFL.rotation.set(0.5, 0, -0.1);
+        }
+        if (legFR) {
+          legFR.position.set(0.2, -0.4 + jumpYOffset, -0.2);
+          legFR.rotation.set(0.5, 0, 0.1);
+        }
+        if (legBL) {
+          legBL.position.set(-0.2, -0.4 + jumpYOffset, 0.2);
+          legBL.rotation.set(-0.5, 0, -0.05);
+        }
+        if (legBR) {
+          legBR.position.set(0.2, -0.4 + jumpYOffset, 0.2);
+          legBR.rotation.set(-0.5, 0, 0.05);
+        }
+        if (tail) {
+          tail.rotation.set(0.2 + Math.sin(kickSpeed * 0.3) * 0.1, 0, 0);
+        }
+      } else {
+        // --- CAYENDO / FLOTANDO: Pataleo desesperado ---
+        // El cuerpo se inclina ligeramente hacia abajo (buscando el suelo)
+        const fallT = Math.min(Math.abs(velocity.y) / 10, 1.0);
+        const bodyPitch = 0.12 * fallT;
+        
+        if (bodyMesh) {
+          bodyMesh.rotation.set(bodyPitch, 0, 0);
+          bodyMesh.position.y = 0.1;
+        }
+
+        // Pataleo desfasado izquierda/derecha
+        const swingL = Math.sin(kickSpeed) * 0.45;
+        const swingR = -Math.sin(kickSpeed) * 0.45;
+        // Las patitas se abren a los lados para dar sensación de caída libre
+        const spread = 0.1 + fallT * 0.15;
+
+        if (legFL) {
+          legFL.position.set(-0.2, -0.4 + jumpYOffset, -0.2);
+          legFL.rotation.set(swingL, 0, -spread);
+        }
+        if (legFR) {
+          legFR.position.set(0.2, -0.4 + jumpYOffset, -0.2);
+          legFR.rotation.set(swingR, 0, spread);
+        }
+        if (legBL) {
+          legBL.position.set(-0.2, -0.4 + jumpYOffset, 0.2);
+          legBL.rotation.set(swingR, 0, -spread * 0.8);
+        }
+        if (legBR) {
+          legBR.position.set(0.2, -0.4 + jumpYOffset, 0.2);
+          legBR.rotation.set(swingL, 0, spread * 0.8);
+        }
+        if (tail) {
+          // La cola se mueve de lado a lado desesperadamente
+          tail.rotation.set(0.6 + Math.sin(kickSpeed * 0.5) * 0.15, 0, Math.sin(kickSpeed) * 0.3);
+        }
+      }
+    } else if (speed > 0.15) {
+      // --- CAMINANDO: Balanceo de patas y rebote del cuerpo ---
+      const swing = Math.sin(time * 1.5) * 0.45;
+      
+      // Rebote vertical sutil del cuerpo al caminar
+      if (bodyMesh) {
+        bodyMesh.rotation.set(0, 0, 0);
+        bodyMesh.position.y = 0.1 + Math.sin(time * 3.0) * 0.02;
+      }
+
+      if (legFL) {
+        legFL.position.set(-0.2, -0.4, -0.2);
+        legFL.rotation.set(swing, 0, 0);
+      }
+      if (legFR) {
+        legFR.position.set(0.2, -0.4, -0.2);
+        legFR.rotation.set(-swing, 0, 0);
+      }
+      if (legBL) {
+        legBL.position.set(-0.2, -0.4, 0.2);
+        legBL.rotation.set(-swing, 0, 0);
+      }
+      if (legBR) {
+        legBR.position.set(0.2, -0.4, 0.2);
+        legBR.rotation.set(swing, 0, 0);
+      }
+      if (tail) {
+        tail.rotation.set(0.4 + Math.sin(time) * 0.12, 0, 0);
+      }
+    } else {
+      // --- REPOSO (Idle): Respiración sutil ---
+      if (bodyMesh) {
+        bodyMesh.rotation.set(0, 0, 0);
+        bodyMesh.position.y = 0.1 + Math.sin(time * 0.5) * 0.005; // Efecto respiración sutil
+      }
+
+      if (legFL) {
+        legFL.position.set(-0.2, -0.4, -0.2);
+        legFL.rotation.set(0, 0, 0);
+      }
+      if (legFR) {
+        legFR.position.set(0.2, -0.4, -0.2);
+        legFR.rotation.set(0, 0, 0);
+      }
+      if (legBL) {
+        legBL.position.set(-0.2, -0.4, 0.2);
+        legBL.rotation.set(0, 0, 0);
+      }
+      if (legBR) {
+        legBR.position.set(0.2, -0.4, 0.2);
+        legBR.rotation.set(0, 0, 0);
+      }
+      if (tail) {
+        tail.rotation.set(0.4 + Math.sin(time * 0.3) * 0.04, 0, 0);
+      }
+    }
   }
 
   getSnapshot(): PlayerSnapshot {
@@ -192,6 +343,8 @@ export class Player implements NetworkedEntity<PlayerSnapshot> {
     this.body.setTranslation(nextPosition, true);
     this.body.setLinvel(pose.velocity, true);
     this.visualYaw = lerpAngle(this.visualYaw, pose.yaw, alpha);
+    this.lookYaw = this.visualYaw;
+    this.lookPitch = 0;
   }
 }
 
