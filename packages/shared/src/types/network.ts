@@ -41,6 +41,7 @@ export interface PlayerPose {
   position: Vec3;
   velocity: Vec3;
   yaw: number;
+  isActionActive?: boolean;
 }
 
 export interface BoxState {

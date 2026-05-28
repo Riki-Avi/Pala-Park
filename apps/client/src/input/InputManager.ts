@@ -8,7 +8,7 @@ const playerOne: PlayerKeyMap = {
   forward: ["KeyW"],
   backward: ["KeyS"],
   jump: ["Space"],
-  interact: ["KeyE"]
+  interact: ["KeyE", "MouseLeft"]
 };
 
 const playerTwo: PlayerKeyMap = {
@@ -17,7 +17,7 @@ const playerTwo: PlayerKeyMap = {
   forward: ["ArrowUp"],
   backward: ["ArrowDown"],
   jump: ["ShiftRight", "Enter"],
-  interact: ["Slash"]
+  interact: ["Slash", "MouseLeft"]
 };
 
 export class InputManager {
@@ -36,6 +36,8 @@ export class InputManager {
   constructor() {
     window.addEventListener("keydown", this.handleKeyDown);
     window.addEventListener("keyup", this.handleKeyUp);
+    window.addEventListener("mousedown", this.handleMouseDown);
+    window.addEventListener("mouseup", this.handleMouseUp);
     window.addEventListener("blur", this.handleBlur);
     window.addEventListener("mousemove", this.handleMouseMove);
   }
@@ -43,6 +45,8 @@ export class InputManager {
   dispose(): void {
     window.removeEventListener("keydown", this.handleKeyDown);
     window.removeEventListener("keyup", this.handleKeyUp);
+    window.removeEventListener("mousedown", this.handleMouseDown);
+    window.removeEventListener("mouseup", this.handleMouseUp);
     window.removeEventListener("blur", this.handleBlur);
     window.removeEventListener("mousemove", this.handleMouseMove);
     this.pointerElement?.removeEventListener("click", this.handlePointerRequest);
@@ -115,6 +119,18 @@ export class InputManager {
 
   private readonly handleKeyUp = (event: KeyboardEvent): void => {
     this.pressed.delete(event.code);
+  };
+
+  private readonly handleMouseDown = (event: MouseEvent): void => {
+    if (event.button === 0) { // Left click
+      this.pressed.add("MouseLeft");
+    }
+  };
+
+  private readonly handleMouseUp = (event: MouseEvent): void => {
+    if (event.button === 0) {
+      this.pressed.delete("MouseLeft");
+    }
   };
 
   private readonly handleBlur = (): void => {

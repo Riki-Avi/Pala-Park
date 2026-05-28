@@ -1,0 +1,53 @@
+{
+  "id": "level-05",
+  "name": "Batalla Espacial en Equipo",
+  "objective": "¡Vuelen en sus naves! Los Atacantes deben disparar para romper las paredes de bloques. Los Defensores deben usar su escudo frente al grupo para bloquear las torretas y los láseres.",
+  "rules": {
+    "resetOnAnyPlayerFall": false,
+    "respawnBoxesFromSky": false,
+    "autoAdvanceOnComplete": true
+  },
+  "spawnPoints": [
+    { "x": -22.5, "y": 1.0, "z": -1.5 },
+    { "x": -22.5, "y": 1.0, "z": 1.5 },
+    { "x": -21.0, "y": 1.0, "z": -1.5 },
+    { "x": -21.0, "y": 1.0, "z": 1.5 }
+  ],
+  "platforms": [
+    { "id": "start-platform", "position": { "x": -22.0, "y": 0.0, "z": 0.0 }, "size": { "x": 6.0, "y": 0.6, "z": 6.0 } },
+    
+    { "id": "tunnel-floor", "position": { "x": 9.0, "y": -8.0, "z": 0.0 }, "size": { "x": 68.0, "y": 0.6, "z": 10.0 } },
+    { "id": "tunnel-ceiling", "position": { "x": 9.0, "y": 8.0, "z": 0.0 }, "size": { "x": 68.0, "y": 0.6, "z": 10.0 } },
+    
+    { "id": "tunnel-wall-left", "position": { "x": 9.0, "y": 0.0, "z": -5.0 }, "size": { "x": 68.0, "y": 16.0, "z": 0.2 } },
+    { "id": "tunnel-wall-right", "position": { "x": 9.0, "y": 0.0, "z": 5.0 }, "size": { "x": 68.0, "y": 16.0, "z": 0.2 } },
+    
+    { "id": "wall1-top", "position": { "x": -10.0, "y": 5.5, "z": 0.0 }, "size": { "x": 1.2, "y": 5.0, "z": 10.0 } },
+    { "id": "wall1-bottom", "position": { "x": -10.0, "y": -5.5, "z": 0.0 }, "size": { "x": 1.2, "y": 5.0, "z": 10.0 } },
+    
+    { "id": "wall2-bottom", "position": { "x": 2.0, "y": -4.0, "z": 0.0 }, "size": { "x": 1.2, "y": 8.0, "z": 10.0 } },
+    { "id": "wall2-top", "position": { "x": 2.0, "y": 6.5, "z": 0.0 }, "size": { "x": 1.2, "y": 3.0, "z": 10.0 } },
+    
+    { "id": "wall4-top", "position": { "x": 12.0, "y": 4.0, "z": 0.0 }, "size": { "x": 1.2, "y": 8.0, "z": 10.0 } },
+    { "id": "wall4-bottom", "position": { "x": 12.0, "y": -6.5, "z": 0.0 }, "size": { "x": 1.2, "y": 3.0, "z": 10.0 } },
+    
+    { "id": "wall3-top", "position": { "x": 22.0, "y": 5.5, "z": 0.0 }, "size": { "x": 1.2, "y": 5.0, "z": 10.0 } },
+    { "id": "wall3-bottom", "position": { "x": 22.0, "y": -5.5, "z": 0.0 }, "size": { "x": 1.2, "y": 5.0, "z": 10.0 } },
+    
+    { "id": "end-platform", "position": { "x": 37.0, "y": 0.0, "z": 0.0 }, "size": { "x": 12.0, "y": 0.6, "z": 8.0 } },
+    
+    { "id": "tunnel-wall-back", "position": { "x": -25.0, "y": 0.0, "z": 0.0 }, "size": { "x": 0.2, "y": 16.0, "z": 10.0 } },
+    { "id": "tunnel-wall-front", "position": { "x": 43.0, "y": 0.0, "z": 0.0 }, "size": { "x": 0.2, "y": 16.0, "z": 10.0 } }
+  ],
+  "boxes": [],
+  "buttons": [],
+  "doors": [],
+  "goalZones": [
+    {
+      "id": "goal",
+      "position": { "x": 37.0, "y": 1.05, "z": 0.0 },
+      "size": { "x": 4.5, "y": 1.5, "z": 4.0 },
+      "requiredPlayers": 4
+    }
+  ]
+}

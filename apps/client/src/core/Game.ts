@@ -56,7 +56,7 @@ export class Game {
   }
 
   async start(): Promise<void> {
-    await this.loadLevel(3); // Inicia en Nivel 4 (índice 3) por defecto
+    await this.loadLevel(4); // Inicia en Nivel 5 (índice 4) por defecto
     this.clock.start();
     this.animationFrame = window.requestAnimationFrame(this.update);
   }
@@ -271,7 +271,21 @@ export class Game {
       return;
     }
 
-    this.level.update(this.rules.getPlayerPositions(this.players));
+    this.level.update(
+      this.rules.getPlayerPositions(this.players),
+      this.activePlayerIndex,
+      this.input
+    );
+
+    if (this.level.shouldReset) {
+      this.level.shouldReset = false;
+      if (this.online.isOnline) {
+        this.online.requestReset("fall");
+      } else {
+        this.resetLevel("Reinicio solicitado por el nivel");
+      }
+    }
+
     this.online.sendLevelState(this.tick, this.level);
   }
 

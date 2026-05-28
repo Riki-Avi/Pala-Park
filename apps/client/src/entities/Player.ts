@@ -19,6 +19,7 @@ export class Player implements NetworkedEntity<PlayerSnapshot> {
   readonly body: RAPIER.RigidBody;
   isGrounded = false;
   inGoal = false;
+  isActionActive = false;
   lastProcessedInput = 0;
   lookYaw = 0;
   lookPitch = 0;
@@ -53,6 +54,7 @@ export class Player implements NetworkedEntity<PlayerSnapshot> {
   }
 
   applyInput(input: LocalInputState, yaw = 0, pitch = 0, cameraRelative = false, delta = 1 / 60): void {
+    this.isActionActive = input.interact;
     const velocity = this.body.linvel();
     let x = 0;
     let z = 0;
@@ -109,7 +111,9 @@ export class Player implements NetworkedEntity<PlayerSnapshot> {
       this.isGrounded = false;
       this.coyoteTimer = 0;
       this.jumpBufferTimer = 0;
-      AudioManager.playJump();
+      if (this.body.gravityScale() !== 0) {
+        AudioManager.playJump();
+      }
     } else if (!this.isGrounded && nextYVelocity < 0) {
       nextYVelocity = Math.max(nextYVelocity - 18 * delta, PLAYER_MAX_FALL_SPEED);
     }
@@ -318,7 +322,8 @@ export class Player implements NetworkedEntity<PlayerSnapshot> {
       playerId,
       position: { x: position.x, y: position.y, z: position.z },
       velocity: { x: velocity.x, y: velocity.y, z: velocity.z },
-      yaw
+      yaw,
+      isActionActive: this.isActionActive
     };
   }
 
@@ -347,6 +352,7 @@ export class Player implements NetworkedEntity<PlayerSnapshot> {
     this.visualYaw = lerpAngle(this.visualYaw, pose.yaw, alpha);
     this.lookYaw = this.visualYaw;
     this.lookPitch = 0;
+    this.isActionActive = !!pose.isActionActive;
   }
 }
 

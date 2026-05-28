@@ -158,7 +158,7 @@ export class Level04Runtime extends LevelRuntime {
     }
   }
 
-  override update(playerPositions: Vec3[]): void {
+  override update(playerPositions: Vec3[], activePlayerIndex?: number, inputManager?: any): void {
     // 1. Check key collection
     if (!this.keyCollected && this.keyGroup) {
       for (const pos of playerPositions) {
@@ -195,7 +195,7 @@ export class Level04Runtime extends LevelRuntime {
       gate.setOpen(this.keyCollected);
     }
 
-    super.update(playerPositions);
+    super.update(playerPositions, activePlayerIndex, inputManager);
   }
 
   protected override updateStandardDoors(): void {

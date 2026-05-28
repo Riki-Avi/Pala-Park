@@ -21,6 +21,7 @@ export class LevelRuntime {
   readonly doors: Door[] = [];
   readonly goalZones: GoalZone[] = [];
   private readonly physicsObjects: PhysicsObject[] = [];
+  public shouldReset = false;
 
   constructor(
     readonly definition: LevelDefinition,
@@ -34,7 +35,7 @@ export class LevelRuntime {
     this.createGoalZones();
   }
 
-  update(playerPositions: Vec3[]): void {
+  update(playerPositions: Vec3[], activePlayerIndex?: number, inputManager?: any): void {
     const weightPositions = [...playerPositions, ...this.boxes.map((box) => box.getPosition())];
 
     for (const button of this.buttons) {
@@ -161,9 +162,20 @@ export class LevelRuntime {
 
   private createPlatforms(): void {
     for (const platform of this.definition.platforms) {
-      const material = platform.id.includes("step") ? standardMaterials.step : standardMaterials.floor;
+      const material = this.getPlatformMaterial(platform);
       const mesh = createBox(platform.size, material);
       mesh.position.set(platform.position.x, platform.position.y, platform.position.z);
+      if (platform.id.includes("invisible")) {
+        mesh.visible = false;
+      }
+      if (this.isTunnelGlass(platform)) {
+        mesh.castShadow = false;
+        mesh.receiveShadow = false;
+        mesh.renderOrder = -1;
+      }
+      if (this.isInternalLaserWall(platform)) {
+        this.addWallEdges(mesh, platform);
+      }
       this.scene.add(mesh);
       this.objects.push(mesh);
       this.platforms.push(platform);
@@ -185,6 +197,46 @@ export class LevelRuntime {
       );
       this.physicsObjects.push({ body, collider });
     }
+  }
+
+  private getPlatformMaterial(platform: PlatformDefinition): THREE.Material {
+    if (this.isTunnelGlass(platform)) {
+      return new THREE.MeshStandardMaterial({
+        color: "#89b8d8",
+        roughness: 0.18,
+        metalness: 0.05,
+        transparent: true,
+        opacity: 0.08,
+        depthWrite: false,
+        side: THREE.DoubleSide
+      });
+    }
+
+    return platform.id.includes("step") ? standardMaterials.step : standardMaterials.floor;
+  }
+
+  private isTunnelGlass(platform: PlatformDefinition): boolean {
+    return (
+      platform.id.startsWith("tunnel-wall") ||
+      platform.id === "tunnel-ceiling" ||
+      this.isInternalLaserWall(platform)
+    );
+  }
+
+  private isInternalLaserWall(platform: PlatformDefinition): boolean {
+    return /^wall\d+-/.test(platform.id);
+  }
+
+  private addWallEdges(mesh: THREE.Mesh, platform: PlatformDefinition): void {
+    const edgeGeometry = new THREE.EdgesGeometry(new THREE.BoxGeometry(platform.size.x, platform.size.y, platform.size.z));
+    const edgeMaterial = new THREE.LineBasicMaterial({
+      color: "#d3e3ee",
+      transparent: true,
+      opacity: 0.72
+    });
+    const edges = new THREE.LineSegments(edgeGeometry, edgeMaterial);
+    edges.renderOrder = 2;
+    mesh.add(edges);
   }
 
   private getFloorHeightAt(x: number, z: number): number {
