@@ -6,6 +6,8 @@ const standardMaterials = {
   step: new THREE.MeshStandardMaterial({ color: "#5e6d7b", roughness: 0.72 }),
   button: new THREE.MeshStandardMaterial({ color: "#d9b34c", roughness: 0.58 }),
   buttonPressed: new THREE.MeshStandardMaterial({ color: "#5ed38f", roughness: 0.48 }),
+  buttonBlue: new THREE.MeshStandardMaterial({ color: "#3a86c8", roughness: 0.58 }),
+  buttonBluePressed: new THREE.MeshStandardMaterial({ color: "#5bb2f5", roughness: 0.48 }),
   box: new THREE.MeshStandardMaterial({ color: "#b78755", roughness: 0.7 }),
   door: new THREE.MeshStandardMaterial({ color: "#d85454", roughness: 0.45 }),
   doorOpen: new THREE.MeshStandardMaterial({ color: "#4fb1de", roughness: 0.45, transparent: true, opacity: 0.34 }),

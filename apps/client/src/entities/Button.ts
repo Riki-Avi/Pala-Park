@@ -6,12 +6,24 @@ import { AudioManager } from "../core/AudioManager";
 export class Button {
   pressed = false;
 
+  private readonly normalMaterial: THREE.Material;
+  private readonly pressedMaterial: THREE.Material;
+
   constructor(
     readonly definition: ButtonDefinition,
     readonly mesh: THREE.Mesh
-  ) {}
+  ) {
+    this.normalMaterial = mesh.material as THREE.Material;
+    this.pressedMaterial = definition.id === "button-unlock"
+      ? standardMaterials.buttonBluePressed
+      : standardMaterials.buttonPressed;
+  }
 
   update(weightPositions: Vec3[]): void {
+    if (this.definition.mode === "toggle" && this.pressed) {
+      return;
+    }
+
     this.setPressed(
       weightPositions.some((position) =>
         this.contains(position, {
@@ -28,7 +40,7 @@ export class Button {
       AudioManager.playButton();
     }
     this.pressed = pressed;
-    this.mesh.material = this.pressed ? standardMaterials.buttonPressed : standardMaterials.button;
+    this.mesh.material = this.pressed ? this.pressedMaterial : this.normalMaterial;
     this.mesh.scale.y = this.pressed ? 0.45 : 1;
   }
 

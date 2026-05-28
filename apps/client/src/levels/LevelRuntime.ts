@@ -40,10 +40,31 @@ export class LevelRuntime {
       button.update(weightPositions);
     }
 
+    this.updateStandardDoors();
+  }
+
+  protected updateStandardDoors(): void {
     for (const door of this.doors) {
       const shouldOpen = this.buttons.some(
         (button) => button.definition.targetDoorIds.includes(door.definition.id) && button.pressed
       );
+      door.setOpen(shouldOpen);
+    }
+  }
+
+  protected updateAdvancedDoors(): void {
+    for (const door of this.doors) {
+      const targetButtons = this.buttons.filter((button) =>
+        button.definition.targetDoorIds.includes(door.definition.id)
+      );
+
+      const toggleButtons = targetButtons.filter((b) => b.definition.mode === "toggle");
+      const holdButtons = targetButtons.filter((b) => b.definition.mode === "hold");
+
+      const togglePressed = toggleButtons.some((b) => b.pressed);
+      const holdPressed = holdButtons.length > 0 && holdButtons.every((b) => b.pressed);
+
+      const shouldOpen = togglePressed || holdPressed;
       door.setOpen(shouldOpen);
     }
   }
@@ -179,7 +200,10 @@ export class LevelRuntime {
 
   private createButtons(): void {
     for (const definition of this.definition.buttons) {
-      const mesh = createButtonMesh(definition.size, standardMaterials.button);
+      const material = definition.id === "button-unlock"
+        ? standardMaterials.buttonBlue
+        : standardMaterials.button;
+      const mesh = createButtonMesh(definition.size, material);
       const floorY = this.getFloorHeightAt(definition.position.x, definition.position.z);
       mesh.position.set(definition.position.x, floorY, definition.position.z);
       this.scene.add(mesh);

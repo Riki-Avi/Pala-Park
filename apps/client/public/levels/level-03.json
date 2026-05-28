@@ -1,0 +1,70 @@
+{
+  "id": "level-03",
+  "name": "La Union de los Cuatro",
+  "objective": "Completen el parkour lateral. Luego hagan una torre de 2 para presionar el boton de la columna.",
+  "rules": {
+    "resetOnAnyPlayerFall": true,
+    "respawnBoxesFromSky": true,
+    "autoAdvanceOnComplete": true
+  },
+  "spawnPoints": [
+    { "x": -9.8, "y": 2.0, "z": -0.6 },
+    { "x": -9.8, "y": 2.0, "z": 0.6 },
+    { "x": -9.2, "y": 2.0, "z": -0.6 },
+    { "x": -9.2, "y": 2.0, "z": 0.6 }
+  ],
+  "platforms": [
+    { "id": "start-platform", "position": { "x": -9.5, "y": 0, "z": 0 }, "size": { "x": 2.0, "y": 0.6, "z": 2.0 } },
+    
+    { "id": "parkour-left-1", "position": { "x": -8.5, "y": 0.5, "z": -2.0 }, "size": { "x": 1.2, "y": 0.4, "z": 1.2 } },
+    { "id": "parkour-left-2", "position": { "x": -6.5, "y": 1.1, "z": -2.8 }, "size": { "x": 1.0, "y": 0.4, "z": 1.0 } },
+    { "id": "parkour-left-3", "position": { "x": -4.5, "y": 1.7, "z": -2.0 }, "size": { "x": 1.0, "y": 0.4, "z": 1.0 } },
+    { "id": "button-platform-left", "position": { "x": -2.5, "y": 2.2, "z": -2.5 }, "size": { "x": 1.8, "y": 0.4, "z": 1.8 } },
+
+    { "id": "parkour-right-1", "position": { "x": -8.5, "y": 0.5, "z": 2.0 }, "size": { "x": 1.2, "y": 0.4, "z": 1.2 } },
+    { "id": "parkour-right-2", "position": { "x": -6.5, "y": 1.1, "z": 2.8 }, "size": { "x": 1.0, "y": 0.4, "z": 1.0 } },
+    { "id": "parkour-right-3", "position": { "x": -4.5, "y": 1.7, "z": 2.0 }, "size": { "x": 1.0, "y": 0.4, "z": 1.0 } },
+    { "id": "button-platform-right", "position": { "x": -2.5, "y": 2.2, "z": 2.5 }, "size": { "x": 1.8, "y": 0.4, "z": 1.8 } },
+    
+    { "id": "middle-platform", "position": { "x": 3.5, "y": 0, "z": 0 }, "size": { "x": 4.0, "y": 0.6, "z": 7.0 } },
+    { "id": "unlock-platform", "position": { "x": 3.5, "y": 1.6, "z": 0 }, "size": { "x": 1.5, "y": 2.6, "z": 1.5 } },
+
+    { "id": "central-floor", "position": { "x": 6.5, "y": 0, "z": 0 }, "size": { "x": 6.0, "y": 0.6, "z": 7.0 } }
+  ],
+  "boxes": [],
+  "buttons": [
+    {
+      "id": "button-start-1",
+      "position": { "x": -2.5, "y": 2.5, "z": -2.5 },
+      "size": { "x": 1.2, "y": 0.16, "z": 1.2 },
+      "targetDoorIds": ["door-big"],
+      "mode": "hold"
+    },
+    {
+      "id": "button-start-2",
+      "position": { "x": -2.5, "y": 2.5, "z": 2.5 },
+      "size": { "x": 1.2, "y": 0.16, "z": 1.2 },
+      "targetDoorIds": ["door-big"],
+      "mode": "hold"
+    },
+    {
+      "id": "button-unlock",
+      "position": { "x": 3.5, "y": 3.0, "z": 0 },
+      "size": { "x": 1.2, "y": 0.16, "z": 1.2 },
+      "targetDoorIds": ["door-big", "door-victory"],
+      "mode": "toggle"
+    }
+  ],
+  "doors": [
+    { "id": "door-big", "position": { "x": -0.5, "y": 1.8, "z": 0 }, "size": { "x": 0.4, "y": 10.5, "z": 10.0 } },
+    { "id": "door-victory", "position": { "x": 5.5, "y": 1.8, "z": 0 }, "size": { "x": 0.4, "y": 10.5, "z": 10.0 } }
+  ],
+  "goalZones": [
+    {
+      "id": "goal",
+      "position": { "x": 7.5, "y": 1.05, "z": 0 },
+      "size": { "x": 3.0, "y": 1.5, "z": 3.0 },
+      "requiredPlayers": 4
+    }
+  ]
+}

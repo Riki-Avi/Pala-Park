@@ -4,20 +4,12 @@ import { Game } from "./core/Game";
 import { ClientSocket } from "./network/ClientSocket";
 import "./styles.css";
 
-async function loadLevels(): Promise<LevelDefinition[]> {
+async function loadLevelFiles(): Promise<string[]> {
   const response = await fetch("/levels/levels.json");
   if (!response.ok) {
     throw new Error(`Failed to fetch levels index: ${response.statusText}`);
   }
-  const manifest: string[] = await response.json();
-  const promises = manifest.map(async (filename) => {
-    const res = await fetch(`/levels/${filename}`);
-    if (!res.ok) {
-      throw new Error(`Failed to fetch level ${filename}: ${res.statusText}`);
-    }
-    return res.json() as Promise<LevelDefinition>;
-  });
-  return await Promise.all(promises);
+  return await response.json();
 }
 
 async function bootstrap(): Promise<void> {
@@ -78,11 +70,11 @@ async function bootstrap(): Promise<void> {
     objective.textContent = "Cargando niveles...";
   }
 
-  const levels = await loadLevels();
+  const levelFiles = await loadLevelFiles();
 
-  const game = new Game(canvas, levels);
+  const game = new Game(canvas, levelFiles);
   game.attachNetwork(network);
-  game.start();
+  await game.start();
 }
 
 async function initializeRapier(): Promise<void> {

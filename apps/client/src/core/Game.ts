@@ -31,7 +31,7 @@ export class Game {
   private fpsTimer = 0;
   private animationFrame = 0;
 
-  constructor(private readonly canvas: HTMLCanvasElement, levels: LevelDefinition[]) {
+  constructor(private readonly canvas: HTMLCanvasElement, levelFiles: string[]) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.shadowMap.enabled = true;
@@ -41,28 +41,34 @@ export class Game {
     this.scene.fog = new THREE.Fog("#20242c", 20, 60);
 
     this.setupLighting();
-    this.levelController = new LevelController(levels, this.scene, this.physics.world, 1);
-    this.createPlayers(this.level.definition.spawnPoints);
+    this.levelController = new LevelController(levelFiles, this.scene, this.physics.world);
+    this.createPlayers([
+      { x: 0, y: 0, z: 0 },
+      { x: 0, y: 0, z: 0 },
+      { x: 0, y: 0, z: 0 },
+      { x: 0, y: 0, z: 0 }
+    ]);
     this.input.enablePointerLook(this.canvas);
     this.setupSensitivityControl();
     this.resize();
 
-    this.updateLevelText();
     window.addEventListener("resize", this.resize);
   }
 
-  start(): void {
+  async start(): Promise<void> {
+    await this.loadLevel(2); // Inicia en Nivel 3 (índice 2) por defecto
     this.clock.start();
     this.animationFrame = window.requestAnimationFrame(this.update);
   }
 
   attachNetwork(network: ClientSocket): void {
     this.online.attach(network, {
-      onSessionStarted: (session) => {
+      onSessionStarted: async (session) => {
         this.activePlayerIndex = this.playerIndexFromId(session.playerId);
-        this.loadLevel(0);
+        const startIndex = this.levelController.currentIndex;
+        await this.loadLevel(startIndex);
         document.querySelector("#objective")!.textContent =
-          `Online nivel 1 - controlas ${session.playerId} - esperando 4 jugadores`;
+          `Online nivel ${startIndex + 1} - controlas ${session.playerId} - esperando 4 jugadores`;
       },
       onLevelReset: (message) => this.resetLevel(message)
     });
@@ -289,14 +295,14 @@ export class Game {
     document.querySelector("#objective")!.textContent = `Controlando jugador ${playerName}`;
   }
 
-  private loadNextLevel(): void {
-    this.levelController.loadNext();
+  private async loadNextLevel(): Promise<void> {
+    await this.levelController.loadNext();
     this.resetLevel();
     this.updateLevelText();
   }
 
-  private loadLevel(levelIndex: number): void {
-    this.levelController.load(levelIndex);
+  private async loadLevel(levelIndex: number): Promise<void> {
+    await this.levelController.load(levelIndex);
     this.resetLevel();
     this.updateLevelText();
   }
