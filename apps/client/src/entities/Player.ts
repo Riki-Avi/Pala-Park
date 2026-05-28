@@ -12,6 +12,7 @@ import {
 } from "@game/shared";
 import type { LocalInputState } from "../input/InputState";
 import { createPlayerMesh } from "../render/MeshFactory";
+import { AudioManager } from "../core/AudioManager";
 
 export class Player implements NetworkedEntity<PlayerSnapshot> {
   readonly mesh: THREE.Group;
@@ -98,6 +99,7 @@ export class Player implements NetworkedEntity<PlayerSnapshot> {
       this.isGrounded = false;
       this.coyoteTimer = 0;
       this.jumpBufferTimer = 0;
+      AudioManager.playJump();
     } else if (!this.isGrounded && nextYVelocity < 0) {
       nextYVelocity = Math.max(nextYVelocity - 18 * delta, PLAYER_MAX_FALL_SPEED);
     }
@@ -180,6 +182,12 @@ export class Player implements NetworkedEntity<PlayerSnapshot> {
       y: current.y + (pose.position.y - current.y) * alpha,
       z: current.z + (pose.position.z - current.z) * alpha
     };
+
+    const previousVelocity = this.body.linvel();
+    const isJumpingNow = pose.velocity.y > 4 && previousVelocity.y <= 0.1;
+    if (isJumpingNow) {
+      AudioManager.playJump();
+    }
 
     this.body.setTranslation(nextPosition, true);
     this.body.setLinvel(pose.velocity, true);
