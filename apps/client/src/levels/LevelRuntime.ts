@@ -6,6 +6,7 @@ import { Door } from "../entities/Door";
 import { GoalZone } from "../entities/GoalZone";
 import { PushBox } from "../entities/PushBox";
 import { createBox, createButtonMesh, standardMaterials } from "../render/MeshFactory";
+import type { Player } from "../entities/Player";
 
 interface PhysicsObject {
   body: RAPIER.RigidBody;
@@ -23,8 +24,8 @@ export class LevelRuntime {
 
   constructor(
     readonly definition: LevelDefinition,
-    private readonly scene: THREE.Scene,
-    private readonly world: RAPIER.World
+    protected readonly scene: THREE.Scene,
+    protected readonly world: RAPIER.World
   ) {
     this.createPlatforms();
     this.createBoxes();
@@ -142,9 +143,17 @@ export class LevelRuntime {
     }
   }
 
+  onLevelStart(players: Player[]): void {
+    // Override in subclasses for level-specific start/reset logic
+  }
+
+  getDeathThreshold(): number {
+    return -8.0;
+  }
+
   recoverFallenObjects(): void {
     for (const box of this.boxes) {
-      if (box.getPosition().y < -8) {
+      if (box.getPosition().y < this.getDeathThreshold()) {
         box.respawnFromSky();
       }
     }

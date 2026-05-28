@@ -54,23 +54,39 @@ export class GameRulesController {
       activePlayerIndex: number;
       isOnline: boolean;
       requestOnlineReset: () => void;
+      requestLocalReset?: () => void;
     }
   ): void {
     if (!level.definition.rules.resetOnAnyPlayerFall) {
       return;
     }
 
+    const deathThreshold = level.getDeathThreshold();
+
     if (options.isOnline) {
       const localPlayer = players[options.activePlayerIndex];
-      if (localPlayer.body.translation().y < -8) {
+      if (localPlayer.body.translation().y < deathThreshold) {
         options.requestOnlineReset();
       }
       return;
     }
 
-    for (const [index, player] of players.entries()) {
-      if (player.body.translation().y < -8) {
-        player.reset(level.definition.spawnPoints[index]);
+    let anyFallen = false;
+    for (const player of players) {
+      if (player.body.translation().y < deathThreshold) {
+        anyFallen = true;
+        break;
+      }
+    }
+
+    if (anyFallen) {
+      if (options.requestLocalReset) {
+        options.requestLocalReset();
+      } else {
+        // Fallback for compatibility
+        for (const [index, player] of players.entries()) {
+          player.reset(level.definition.spawnPoints[index]);
+        }
       }
     }
   }

@@ -40,10 +40,12 @@ export class Player implements NetworkedEntity<PlayerSnapshot> {
       .lockRotations();
     this.body = world.createRigidBody(rigidBody);
 
-    const collider = RAPIER.ColliderDesc.cuboid(
-      PLAYER_SIZE.x / 2,
-      PLAYER_SIZE.y / 2,
-      PLAYER_SIZE.z / 2
+    const borderRadius = 0.08;
+    const collider = RAPIER.ColliderDesc.roundCuboid(
+      PLAYER_SIZE.x / 2 - borderRadius,
+      PLAYER_SIZE.y / 2 - borderRadius,
+      PLAYER_SIZE.z / 2 - borderRadius,
+      borderRadius
     )
       .setFriction(0)
       .setFrictionCombineRule(RAPIER.CoefficientCombineRule.Min);

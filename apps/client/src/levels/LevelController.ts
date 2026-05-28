@@ -3,6 +3,7 @@ import * as THREE from "three";
 import type { LevelDefinition } from "@game/shared";
 import { LevelRuntime } from "./LevelRuntime";
 import { Level03Runtime } from "./Level03Runtime";
+import { Level04Runtime } from "./Level04Runtime";
 
 export class LevelController {
   private runtime: LevelRuntime | null = null;
@@ -57,6 +58,9 @@ export class LevelController {
   private createRuntime(definition: LevelDefinition): LevelRuntime {
     if (definition.id === "level-03") {
       return new Level03Runtime(definition, this.scene, this.world);
+    }
+    if (definition.id === "level-04") {
+      return new Level04Runtime(definition, this.scene, this.world);
     }
     return new LevelRuntime(definition, this.scene, this.world);
   }

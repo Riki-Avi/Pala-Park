@@ -56,7 +56,7 @@ export class Game {
   }
 
   async start(): Promise<void> {
-    await this.loadLevel(2); // Inicia en Nivel 3 (índice 2) por defecto
+    await this.loadLevel(3); // Inicia en Nivel 4 (índice 3) por defecto
     this.clock.start();
     this.animationFrame = window.requestAnimationFrame(this.update);
   }
@@ -130,11 +130,15 @@ export class Game {
 
     for (const [index, player] of this.players.entries()) {
       const isActivePlayer = index === this.activePlayerIndex;
-      if (this.online.isOnline && !isActivePlayer) {
+      if (!isActivePlayer) {
+        if (!this.online.isOnline) {
+          player.body.setLinearDamping(1.5);
+        }
         continue;
       }
 
-      const playerInput = isActivePlayer ? this.input.getPrimaryInput() : createEmptyInput();
+      player.body.setLinearDamping(0.0);
+      const playerInput = this.input.getPrimaryInput();
       player.applyInput(playerInput, this.input.yaw, this.input.pitch, isActivePlayer, FIXED_DELTA);
     }
 
@@ -275,7 +279,8 @@ export class Game {
     this.rules.recoverFallenPlayers(this.players, this.level, {
       activePlayerIndex: this.activePlayerIndex,
       isOnline: this.online.isOnline,
-      requestOnlineReset: () => this.online.requestReset("fall")
+      requestOnlineReset: () => this.online.requestReset("fall"),
+      requestLocalReset: () => this.resetLevel("Jugador cayó al vacío")
     });
   }
 
@@ -285,6 +290,7 @@ export class Game {
     }
     this.levelAdvanceTimer = -1;
     this.level.resetDynamicObjects();
+    this.level.onLevelStart(this.players);
     document.querySelector("#objective")!.textContent = message;
   }
 
