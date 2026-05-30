@@ -83,6 +83,7 @@ export class OnlineSessionController {
       this.pendingReset = false;
       this.pendingLevelState = null;
       this.pendingGoalProgress = null;
+      this.remotePlayerInterpolator.clear();
       callbacks.onLevelReset(`Nivel reiniciado por ${payload.byPlayerId}`);
     });
 
@@ -94,6 +95,7 @@ export class OnlineSessionController {
       this.pendingReset = false;
       this.pendingLevelState = null;
       this.pendingGoalProgress = null;
+      this.remotePlayerInterpolator.clear();
       if (this.roomState) {
         this.roomState.levelIndex = payload.levelIndex;
       }
@@ -134,7 +136,7 @@ export class OnlineSessionController {
   }
 
   sendPose(tick: number, player: Player, yaw: number): void {
-    if (!this.network || !this.session || !this.isPlaying || tick === this.lastPoseSentTick || tick % 2 !== 0) {
+    if (!this.network || !this.session || !this.isPlaying || tick === this.lastPoseSentTick) {
       return;
     }
 

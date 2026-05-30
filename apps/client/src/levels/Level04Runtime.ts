@@ -27,6 +27,11 @@ export class Level04Runtime extends LevelRuntime {
     return -15.0; // Lower death threshold for Level 4
   }
 
+  override prepareReset(players: Player[]): void {
+    this.clearRopesAndJoints();
+    this.levelPlayers = players;
+  }
+
   override onLevelStart(players: Player[]): void {
     this.keyCollected = false;
 

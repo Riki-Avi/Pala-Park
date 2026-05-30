@@ -30,6 +30,7 @@ export class Game {
   private frameCount = 0;
   private fpsTimer = 0;
   private animationFrame = 0;
+  private pendingLevelChange = false;
 
   constructor(private readonly canvas: HTMLCanvasElement, levelFiles: string[]) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -74,6 +75,7 @@ export class Game {
       onLevelChanged: async (payload) => {
         const nextIndex = this.clampLevelIndex(payload.levelIndex);
         await this.loadLevel(nextIndex);
+        this.pendingLevelChange = false;
         document.querySelector("#objective")!.textContent =
           `Nivel ${nextIndex + 1} cargado por ${payload.byPlayerId}`;
       }
@@ -214,6 +216,11 @@ export class Game {
   }
 
   private updateGoalFromProgress(completed: boolean): void {
+    if (completed && this.pendingLevelChange) {
+      document.querySelector("#objective")!.textContent = "Nivel completado - esperando cambio de nivel";
+      return;
+    }
+
     const previousTimer = this.levelAdvanceTimer;
     if (completed && this.level.definition.rules.autoAdvanceOnComplete && this.levelAdvanceTimer < 0) {
       this.levelAdvanceTimer = 3.0; // 3 segundos de espera para clientes online
@@ -310,6 +317,8 @@ export class Game {
   }
 
   private resetLevel(message = "Nivel reiniciado"): void {
+    this.pendingLevelChange = false;
+    this.level.prepareReset(this.players);
     for (const [index, player] of this.players.entries()) {
       player.reset(this.level.definition.spawnPoints[index]);
     }
@@ -327,8 +336,18 @@ export class Game {
   }
 
   private async loadNextLevel(): Promise<void> {
+    if (this.pendingLevelChange) {
+      return;
+    }
+
     const nextIndex = this.clampLevelIndex(this.levelController.currentIndex + 1);
     if (this.online.isOnline) {
+      if (!this.online.isHost) {
+        document.querySelector("#objective")!.textContent = "Nivel completado - esperando al host";
+        return;
+      }
+
+      this.pendingLevelChange = true;
       this.online.requestLevelChange(nextIndex);
       return;
     }
@@ -340,6 +359,7 @@ export class Game {
 
   private async loadLevel(levelIndex: number): Promise<void> {
     await this.levelController.load(levelIndex);
+    this.pendingLevelChange = false;
     this.resetLevel();
     this.updateLevelText();
   }

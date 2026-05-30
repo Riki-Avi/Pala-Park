@@ -170,6 +170,10 @@ export class LevelRuntime {
     // Override in subclasses for level-specific start/reset logic
   }
 
+  prepareReset(players: Player[]): void {
+    // Override in subclasses to clear constraints before players are teleported to spawn.
+  }
+
   getDeathThreshold(): number {
     return -8.0;
   }
