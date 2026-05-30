@@ -271,7 +271,8 @@ function isValidPlayerPose(pose: PlayerPose | null | undefined): pose is PlayerP
     isFiniteNumber(pose.velocity?.x) &&
     isFiniteNumber(pose.velocity?.y) &&
     isFiniteNumber(pose.velocity?.z) &&
-    isFiniteNumber(pose.yaw)
+    isFiniteNumber(pose.yaw) &&
+    typeof pose.isActionActive === "boolean"
   );
 }
 

@@ -184,6 +184,14 @@ export class Game {
   }
 
   private updateGoal(): void {
+    if (this.pendingLevelChange) {
+      document.querySelector("#objective")!.textContent =
+        this.online.isOnline && !this.online.isHost
+          ? "Nivel completado - esperando cambio de nivel"
+          : "Nivel completado - cargando siguiente nivel";
+      return;
+    }
+
     if (this.online.isOnline && !this.online.isHost) {
       const progress = this.online.getGoalProgress();
       if (progress?.levelId === this.level.definition.id) {
@@ -343,18 +351,29 @@ export class Game {
     const nextIndex = this.clampLevelIndex(this.levelController.currentIndex + 1);
     if (this.online.isOnline) {
       if (!this.online.isHost) {
-        document.querySelector("#objective")!.textContent = "Nivel completado - esperando al host";
+        this.pendingLevelChange = true;
+        document.querySelector("#objective")!.textContent = "Nivel completado - esperando cambio de nivel";
         return;
       }
 
-      this.pendingLevelChange = true;
-      this.online.requestLevelChange(nextIndex);
+      if (this.online.requestLevelChange(nextIndex)) {
+        this.pendingLevelChange = true;
+        document.querySelector("#objective")!.textContent = "Nivel completado - cargando siguiente nivel";
+      } else {
+        document.querySelector("#objective")!.textContent =
+          "Nivel completado - no se pudo pedir el siguiente nivel";
+      }
       return;
     }
 
-    await this.levelController.load(nextIndex);
-    this.resetLevel();
-    this.updateLevelText();
+    this.pendingLevelChange = true;
+    try {
+      await this.levelController.load(nextIndex);
+      this.resetLevel();
+      this.updateLevelText();
+    } finally {
+      this.pendingLevelChange = false;
+    }
   }
 
   private async loadLevel(levelIndex: number): Promise<void> {

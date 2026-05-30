@@ -209,11 +209,12 @@ export class OnlineSessionController {
     this.network.requestReset(reason);
   }
 
-  requestLevelChange(levelIndex: number): void {
+  requestLevelChange(levelIndex: number): boolean {
     if (!this.network || !this.session || !this.isHost) {
-      return;
+      return false;
     }
 
     this.network.requestLevelChange(levelIndex);
+    return true;
   }
 }

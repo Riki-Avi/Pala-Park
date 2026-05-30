@@ -39,11 +39,14 @@ export class RemotePoseBuffer {
     const duration = Math.max(to.receivedAt - from.receivedAt, 1);
     const alpha = clamp01((renderTime - from.receivedAt) / duration);
 
+    const isActionActive = from.pose.isActionActive || to.pose.isActionActive;
+
     return {
       playerId: to.pose.playerId,
       position: lerpVec3(from.pose.position, to.pose.position, alpha),
       velocity: lerpVec3(from.pose.velocity, to.pose.velocity, alpha),
-      yaw: lerpAngle(from.pose.yaw, to.pose.yaw, alpha)
+      yaw: lerpAngle(from.pose.yaw, to.pose.yaw, alpha),
+      isActionActive
     };
   }
 }
