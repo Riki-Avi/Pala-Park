@@ -1,6 +1,7 @@
 import { io, type Socket } from "socket.io-client";
 import type {
   ClientToServerEvents,
+  LevelChangedPayload,
   GoalProgressPayload,
   LevelResetPayload,
   LevelStatePayload,
@@ -25,6 +26,7 @@ export class ClientSocket {
   private readonly levelStateHandlers: Array<(payload: LevelStatePayload) => void> = [];
   private readonly goalProgressHandlers: Array<(payload: GoalProgressPayload) => void> = [];
   private readonly resetHandlers: Array<(payload: LevelResetPayload) => void> = [];
+  private readonly levelChangedHandlers: Array<(payload: LevelChangedPayload) => void> = [];
   private readonly statusHandlers: Array<(message: string) => void> = [];
 
   constructor() {
@@ -63,6 +65,7 @@ export class ClientSocket {
     this.socket.on("levelState", (payload) => this.levelStateHandlers.forEach((handler) => handler(payload)));
     this.socket.on("goalProgress", (payload) => this.goalProgressHandlers.forEach((handler) => handler(payload)));
     this.socket.on("levelReset", (payload) => this.resetHandlers.forEach((handler) => handler(payload)));
+    this.socket.on("levelChanged", (payload) => this.levelChangedHandlers.forEach((handler) => handler(payload)));
   }
 
   createRoom(): void {
@@ -93,6 +96,10 @@ export class ClientSocket {
 
   startGame(): void {
     this.socket.emit("requestStartGame");
+  }
+
+  requestLevelChange(levelIndex: number): void {
+    this.socket.emit("requestLevelChange", { levelIndex });
   }
 
   getServerUrl(): string {
@@ -129,6 +136,10 @@ export class ClientSocket {
 
   onLevelReset(handler: (payload: LevelResetPayload) => void): void {
     this.resetHandlers.push(handler);
+  }
+
+  onLevelChanged(handler: (payload: LevelChangedPayload) => void): void {
+    this.levelChangedHandlers.push(handler);
   }
 
   onStatus(handler: (message: string) => void): void {

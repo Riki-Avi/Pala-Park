@@ -111,7 +111,7 @@ export class Player implements NetworkedEntity<PlayerSnapshot> {
       this.isGrounded = false;
       this.coyoteTimer = 0;
       this.jumpBufferTimer = 0;
-      if (this.body.gravityScale() !== 0) {
+      if (this.canPlayJumpSound()) {
         AudioManager.playJump();
       }
     } else if (!this.isGrounded && nextYVelocity < 0) {
@@ -343,7 +343,7 @@ export class Player implements NetworkedEntity<PlayerSnapshot> {
 
     const previousVelocity = this.body.linvel();
     const isJumpingNow = pose.velocity.y > 4 && previousVelocity.y <= 0.1;
-    if (isJumpingNow) {
+    if (isJumpingNow && this.canPlayJumpSound()) {
       AudioManager.playJump();
     }
 
@@ -353,6 +353,10 @@ export class Player implements NetworkedEntity<PlayerSnapshot> {
     this.lookYaw = this.visualYaw;
     this.lookPitch = 0;
     this.isActionActive = !!pose.isActionActive;
+  }
+
+  private canPlayJumpSound(): boolean {
+    return this.body.gravityScale() > 0.01;
   }
 }
 

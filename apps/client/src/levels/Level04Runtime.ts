@@ -1,9 +1,10 @@
 import RAPIER from "@dimforge/rapier3d-compat";
 import * as THREE from "three";
-import type { Vec3 } from "@game/shared";
+import type { LevelCustomStatePayload, Vec3 } from "@game/shared";
 import { LevelRuntime } from "./LevelRuntime";
 import type { Player } from "../entities/Player";
 import { AudioManager } from "../core/AudioManager";
+import type { InputManager } from "../input/InputManager";
 
 interface RopeChain {
   pA: Player;
@@ -20,6 +21,7 @@ export class Level04Runtime extends LevelRuntime {
   private ropeJoints: RAPIER.ImpulseJoint[] = [];
   private ropeChains: RopeChain[] = [];
   private levelPlayers: Player[] = [];
+  private previousSolverIterations: number | null = null;
 
   override getDeathThreshold(): number {
     return -15.0; // Lower death threshold for Level 4
@@ -34,6 +36,7 @@ export class Level04Runtime extends LevelRuntime {
     this.levelPlayers = players;
 
     // Make the physics joints extremely firm and prevent stretching
+    this.previousSolverIterations ??= this.world.integrationParameters.numSolverIterations;
     this.world.integrationParameters.numSolverIterations = 16;
 
     // Configure player collision groups for Level 4
@@ -158,7 +161,7 @@ export class Level04Runtime extends LevelRuntime {
     }
   }
 
-  override update(playerPositions: Vec3[], activePlayerIndex?: number, inputManager?: any): void {
+  override update(playerPositions: Vec3[], activePlayerIndex?: number, inputManager?: InputManager): void {
     // 1. Check key collection
     if (!this.keyCollected && this.keyGroup) {
       for (const pos of playerPositions) {
@@ -168,8 +171,7 @@ export class Level04Runtime extends LevelRuntime {
         const dist = Math.hypot(dx, dy, dz);
         
         if (dist < 1.3) {
-          this.keyCollected = true;
-          this.scene.remove(this.keyGroup);
+          this.setKeyCollected(true);
           AudioManager.playButton();
           
           const objElem = document.querySelector("#objective");
@@ -184,10 +186,7 @@ export class Level04Runtime extends LevelRuntime {
     // 2. Sincronizar recolección de llave desde red si la puerta ya fue abierta
     const gate = this.doors.find((d) => d.definition.id === "door-gate");
     if (gate && gate.open && !this.keyCollected) {
-      this.keyCollected = true;
-      if (this.keyGroup) {
-        this.scene.remove(this.keyGroup);
-      }
+      this.setKeyCollected(true, false);
     }
 
     // 3. Open or close the door gate based on key state
@@ -253,6 +252,7 @@ export class Level04Runtime extends LevelRuntime {
 
   override dispose(): void {
     this.clearRopesAndJoints();
+    this.restoreWorldSettings();
 
     if (this.keyGroup) {
       this.scene.remove(this.keyGroup);
@@ -260,6 +260,22 @@ export class Level04Runtime extends LevelRuntime {
     }
 
     super.dispose();
+  }
+
+  protected override getCustomState(): LevelCustomStatePayload {
+    return {
+      type: "level-04",
+      keyCollected: this.keyCollected
+    };
+  }
+
+  protected override applyCustomState(state: LevelCustomStatePayload | undefined): void {
+    if (state?.type !== "level-04") {
+      return;
+    }
+
+    this.setKeyCollected(state.keyCollected, false);
+    this.doors.find((door) => door.definition.id === "door-gate")?.setOpen(state.keyCollected);
   }
 
   private createKeyMesh(): void {
@@ -292,6 +308,37 @@ export class Level04Runtime extends LevelRuntime {
     this.keyGroup.add(toothMesh);
 
     this.scene.add(this.keyGroup);
+  }
+
+  private setKeyCollected(collected: boolean, updateObjective = true): void {
+    this.keyCollected = collected;
+
+    if (collected) {
+      if (this.keyGroup) {
+        this.scene.remove(this.keyGroup);
+      }
+      return;
+    }
+
+    if (this.keyGroup && !this.keyGroup.parent) {
+      this.scene.add(this.keyGroup);
+    }
+
+    if (updateObjective) {
+      const objElem = document.querySelector("#objective");
+      if (objElem) {
+        objElem.textContent = this.definition.objective;
+      }
+    }
+  }
+
+  private restoreWorldSettings(): void {
+    if (this.previousSolverIterations === null) {
+      return;
+    }
+
+    this.world.integrationParameters.numSolverIterations = this.previousSolverIterations;
+    this.previousSolverIterations = null;
   }
 
   private clearRopesAndJoints(): void {

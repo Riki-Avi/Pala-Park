@@ -56,7 +56,7 @@ export class Game {
   }
 
   async start(): Promise<void> {
-    await this.loadLevel(4); // Inicia en Nivel 5 (índice 4) por defecto
+    await this.loadLevel(this.clampLevelIndex(4)); // Inicia en Nivel 5 por defecto
     this.clock.start();
     this.animationFrame = window.requestAnimationFrame(this.update);
   }
@@ -65,12 +65,18 @@ export class Game {
     this.online.attach(network, {
       onSessionStarted: async (session) => {
         this.activePlayerIndex = this.playerIndexFromId(session.playerId);
-        const startIndex = this.levelController.currentIndex;
+        const startIndex = this.clampLevelIndex(session.roomState.levelIndex);
         await this.loadLevel(startIndex);
         document.querySelector("#objective")!.textContent =
           `Online nivel ${startIndex + 1} - controlas ${session.playerId} - esperando 4 jugadores`;
       },
-      onLevelReset: (message) => this.resetLevel(message)
+      onLevelReset: (message) => this.resetLevel(message),
+      onLevelChanged: async (payload) => {
+        const nextIndex = this.clampLevelIndex(payload.levelIndex);
+        await this.loadLevel(nextIndex);
+        document.querySelector("#objective")!.textContent =
+          `Nivel ${nextIndex + 1} cargado por ${payload.byPlayerId}`;
+      }
     });
   }
 
@@ -267,6 +273,11 @@ export class Game {
 
   private updateLevelState(): void {
     if (this.online.isOnline && !this.online.isHost) {
+      this.level.updateLocal(
+        this.rules.getPlayerPositions(this.players),
+        this.activePlayerIndex,
+        this.input
+      );
       this.online.applyLevelState(this.level);
       return;
     }
@@ -316,7 +327,13 @@ export class Game {
   }
 
   private async loadNextLevel(): Promise<void> {
-    await this.levelController.loadNext();
+    const nextIndex = this.clampLevelIndex(this.levelController.currentIndex + 1);
+    if (this.online.isOnline) {
+      this.online.requestLevelChange(nextIndex);
+      return;
+    }
+
+    await this.levelController.load(nextIndex);
     this.resetLevel();
     this.updateLevelText();
   }
@@ -360,6 +377,10 @@ export class Game {
 
   private updateLevelText(): void {
     document.querySelector("#level-name")!.textContent = this.level.definition.name;
+  }
+
+  private clampLevelIndex(index: number): number {
+    return Math.max(0, Math.min(this.levelController.levelsLength - 1, index));
   }
 
   private updateFps(delta: number): void {

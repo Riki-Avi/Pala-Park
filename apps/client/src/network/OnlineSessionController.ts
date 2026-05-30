@@ -1,5 +1,6 @@
 import type {
   GoalProgressPayload,
+  LevelChangedPayload,
   LevelStatePayload,
   RoomJoinedPayload,
   RoomPlayer,
@@ -13,6 +14,7 @@ import { RemotePlayerInterpolator } from "./RemotePlayerInterpolator";
 interface OnlineSessionCallbacks {
   onSessionStarted: (session: RoomJoinedPayload) => void;
   onLevelReset: (message: string) => void;
+  onLevelChanged: (payload: LevelChangedPayload) => void;
 }
 
 export class OnlineSessionController {
@@ -82,6 +84,20 @@ export class OnlineSessionController {
       this.pendingLevelState = null;
       this.pendingGoalProgress = null;
       callbacks.onLevelReset(`Nivel reiniciado por ${payload.byPlayerId}`);
+    });
+
+    network.onLevelChanged((payload) => {
+      if (payload.roomCode !== this.session?.roomCode) {
+        return;
+      }
+
+      this.pendingReset = false;
+      this.pendingLevelState = null;
+      this.pendingGoalProgress = null;
+      if (this.roomState) {
+        this.roomState.levelIndex = payload.levelIndex;
+      }
+      callbacks.onLevelChanged(payload);
     });
   }
 
@@ -189,5 +205,13 @@ export class OnlineSessionController {
 
     this.pendingReset = true;
     this.network.requestReset(reason);
+  }
+
+  requestLevelChange(levelIndex: number): void {
+    if (!this.network || !this.session || !this.isHost) {
+      return;
+    }
+
+    this.network.requestLevelChange(levelIndex);
   }
 }

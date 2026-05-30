@@ -18,6 +18,7 @@ export class GameRoom {
   state: RoomLifecycleState = "WAITING";
   tick = 0;
   hostPlayerId = "p1";
+  levelIndex = 4;
 
   constructor(readonly roomCode: string) {}
 
@@ -98,7 +99,8 @@ export class GameRoom {
       state: this.state,
       players: this.getPlayers(),
       requiredPlayers: MAX_PLAYERS_PER_ROOM,
-      hostPlayerId: this.hostPlayerId
+      hostPlayerId: this.hostPlayerId,
+      levelIndex: this.levelIndex
     };
   }
 
@@ -160,6 +162,11 @@ export class GameRoom {
   clearSyncedState(): void {
     this.levelState = null;
     this.goalProgress = null;
+  }
+
+  changeLevel(levelIndex: number): void {
+    this.levelIndex = levelIndex;
+    this.clearSyncedState();
   }
 
   pruneDisconnected(maxAgeMs: number): void {

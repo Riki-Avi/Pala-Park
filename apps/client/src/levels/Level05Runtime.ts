@@ -1,9 +1,14 @@
 import RAPIER from "@dimforge/rapier3d-compat";
 import * as THREE from "three";
-import type { Vec3 } from "@game/shared";
+import type {
+  Level05ProjectileState,
+  LevelCustomStatePayload,
+  Vec3
+} from "@game/shared";
 import { LevelRuntime } from "./LevelRuntime";
 import type { Player } from "../entities/Player";
 import { AudioManager } from "../core/AudioManager";
+import type { InputManager } from "../input/InputManager";
 
 interface DestructibleBlock {
   body: RAPIER.RigidBody;
@@ -24,6 +29,7 @@ interface EnemyTurret {
 }
 
 interface LaserProjectile {
+  id: string;
   mesh: THREE.Mesh;
   position: THREE.Vector3;
   velocity: THREE.Vector3;
@@ -51,11 +57,12 @@ export class Level05Runtime extends LevelRuntime {
   private enemyProjectiles: LaserProjectile[] = [];
   
   private playerLastShotTimes: number[] = [0, 0, 0, 0];
+  private nextProjectileId = 0;
   
   private laserBarriers: LaserBarrier[] = [];
   
   private lastActivePlayerIndex?: number;
-  private lastInputManager?: any;
+  private lastInputManager?: InputManager;
 
   override getDeathThreshold(): number {
     return -15.0; // Same death threshold as level 4
@@ -65,6 +72,8 @@ export class Level05Runtime extends LevelRuntime {
     // Clear everything first
     this.clearAllObjects();
     this.levelPlayers = players;
+    this.nextProjectileId = 0;
+    this.playerLastShotTimes = [0, 0, 0, 0];
 
     // 1. Configure spaceships for players
     for (let i = 0; i < players.length; i++) {
@@ -116,13 +125,11 @@ export class Level05Runtime extends LevelRuntime {
     this.spawnTurret(new THREE.Vector3(21.0, -7.5, 3.2), 950);
   }
 
-  override update(playerPositions: Vec3[], activePlayerIndex?: number, inputManager?: any): void {
+  override updateLocal(playerPositions: Vec3[], activePlayerIndex?: number, inputManager?: InputManager): void {
     this.lastActivePlayerIndex = activePlayerIndex;
     this.lastInputManager = inputManager;
     const delta = 1 / 60;
-    const now = Date.now();
 
-    // 1. Process active player flight controls
     if (activePlayerIndex !== undefined && inputManager) {
       const activePlayer = this.levelPlayers[activePlayerIndex];
       const input = inputManager.getPrimaryInput();
@@ -171,6 +178,12 @@ export class Level05Runtime extends LevelRuntime {
         }
       }
     }
+  }
+
+  override update(playerPositions: Vec3[], activePlayerIndex?: number, inputManager?: InputManager): void {
+    this.updateLocal(playerPositions, activePlayerIndex, inputManager);
+    const delta = 1 / 60;
+    const now = Date.now();
 
     // 2. Firing weapons & toggling shields for all players based on isActionActive state
     for (let i = 0; i < this.levelPlayers.length; i++) {
@@ -235,10 +248,7 @@ export class Level05Runtime extends LevelRuntime {
           }
 
           if (block.health <= 0) {
-            this.world.removeCollider(block.collider, true);
-            this.world.removeRigidBody(block.body);
-            this.scene.remove(block.mesh);
-            block.destroyed = true;
+            this.destroyBlock(block);
           }
           break;
         }
@@ -255,9 +265,7 @@ export class Level05Runtime extends LevelRuntime {
             AudioManager.playButton();
 
             if (turret.health <= 0) {
-              this.scene.remove(turret.head);
-              this.scene.remove(turret.baseMesh);
-              turret.destroyed = true;
+              this.destroyTurret(turret);
             }
             break;
           }
@@ -265,9 +273,7 @@ export class Level05Runtime extends LevelRuntime {
       }
 
       if (laserHit || now - laser.spawnTime > 2500 || laser.position.x > 35.0) {
-        this.scene.remove(laser.mesh);
-        laser.mesh.geometry.dispose();
-        (laser.mesh.material as THREE.Material).dispose();
+        this.disposeProjectile(laser);
         this.playerLasers.splice(i, 1);
       }
     }
@@ -363,9 +369,7 @@ export class Level05Runtime extends LevelRuntime {
       }
 
       if (projDestroyed || now - proj.spawnTime > 3500) {
-        this.scene.remove(proj.mesh);
-        proj.mesh.geometry.dispose();
-        (proj.mesh.material as THREE.Material).dispose();
+        this.disposeProjectile(proj);
         this.enemyProjectiles.splice(i, 1);
       }
     }
@@ -392,6 +396,11 @@ export class Level05Runtime extends LevelRuntime {
       const ship = player.mesh.getObjectByName("spaceship");
       if (!ship) continue;
 
+      const shield = ship.getObjectByName("shield");
+      if (shield) {
+        shield.visible = player.isActionActive;
+      }
+
       // Gentle pitch tilt based on vertical movement for the active player, reset to 0 for inactive
       const vel = player.body.linvel();
       if (i === this.lastActivePlayerIndex) {
@@ -417,6 +426,82 @@ export class Level05Runtime extends LevelRuntime {
     super.dispose();
   }
 
+  protected override getCustomState(): LevelCustomStatePayload {
+    return {
+      type: "level-05",
+      blocks: this.blocks.map((block, index) => ({
+        index,
+        health: block.health,
+        destroyed: block.destroyed
+      })),
+      turrets: this.turrets.map((turret, index) => ({
+        index,
+        health: turret.health,
+        destroyed: turret.destroyed
+      })),
+      barriers: this.laserBarriers.map((barrier, index) => ({
+        index,
+        active: barrier.active,
+        position: this.vectorToVec3(barrier.position)
+      })),
+      playerLasers: this.playerLasers.map((laser) => ({
+        id: laser.id,
+        position: this.vectorToVec3(laser.position)
+      })),
+      enemyProjectiles: this.enemyProjectiles.map((projectile) => ({
+        id: projectile.id,
+        position: this.vectorToVec3(projectile.position)
+      }))
+    };
+  }
+
+  protected override applyCustomState(state: LevelCustomStatePayload | undefined): void {
+    if (state?.type !== "level-05") {
+      return;
+    }
+
+    for (const blockState of state.blocks) {
+      const block = this.blocks[blockState.index];
+      if (!block) {
+        continue;
+      }
+
+      block.health = blockState.health;
+      if (blockState.destroyed) {
+        this.destroyBlock(block);
+      }
+    }
+
+    for (const turretState of state.turrets) {
+      const turret = this.turrets[turretState.index];
+      if (!turret) {
+        continue;
+      }
+
+      turret.health = turretState.health;
+      if (turretState.destroyed) {
+        this.destroyTurret(turret);
+      }
+    }
+
+    for (const barrierState of state.barriers) {
+      const barrier = this.laserBarriers[barrierState.index];
+      if (!barrier) {
+        continue;
+      }
+
+      barrier.active = barrierState.active;
+      barrier.position.set(barrierState.position.x, barrierState.position.y, barrierState.position.z);
+      barrier.body.setTranslation(barrier.position, true);
+      barrier.mesh.position.copy(barrier.position);
+      barrier.mesh.visible = barrier.active;
+      barrier.collider.setSensor(!barrier.active);
+    }
+
+    this.syncProjectileStates(this.playerLasers, state.playerLasers, "player");
+    this.syncProjectileStates(this.enemyProjectiles, state.enemyProjectiles, "enemy");
+  }
+
   private firePlayerLaser(player: Player): void {
     const pPos = player.body.translation();
     const yaw = player.mesh.rotation.y;
@@ -435,6 +520,7 @@ export class Level05Runtime extends LevelRuntime {
     this.scene.add(mesh);
 
     this.playerLasers.push({
+      id: this.createProjectileId("player"),
       mesh,
       position: startPos,
       velocity: dir.multiplyScalar(18.0),
@@ -457,6 +543,7 @@ export class Level05Runtime extends LevelRuntime {
     this.scene.add(mesh);
 
     this.enemyProjectiles.push({
+      id: this.createProjectileId("enemy"),
       mesh,
       position: startPos,
       velocity: dir.multiplyScalar(5.5),
@@ -691,17 +778,7 @@ export class Level05Runtime extends LevelRuntime {
 
     // Clear blocks
     for (const block of this.blocks) {
-      if (!block.destroyed) {
-        try {
-          this.world.removeCollider(block.collider, true);
-          this.world.removeRigidBody(block.body);
-          this.scene.remove(block.mesh);
-          block.mesh.geometry.dispose();
-          (block.mesh.material as THREE.Material).dispose();
-        } catch (e) {
-          console.warn("Error removing block body:", e);
-        }
-      }
+      this.destroyBlock(block);
     }
     this.blocks = [];
 
@@ -725,35 +802,19 @@ export class Level05Runtime extends LevelRuntime {
 
     // Clear turrets
     for (const turret of this.turrets) {
-      if (!turret.destroyed) {
-        this.scene.remove(turret.head);
-        this.scene.remove(turret.baseMesh);
-        // dispose head meshes
-        turret.head.traverse((child) => {
-          if (child instanceof THREE.Mesh) {
-            child.geometry.dispose();
-            (child.material as THREE.Material).dispose();
-          }
-        });
-        turret.baseMesh.geometry.dispose();
-        (turret.baseMesh.material as THREE.Material).dispose();
-      }
+      this.destroyTurret(turret);
     }
     this.turrets = [];
 
     // Clear player lasers
     for (const laser of this.playerLasers) {
-      this.scene.remove(laser.mesh);
-      laser.mesh.geometry.dispose();
-      (laser.mesh.material as THREE.Material).dispose();
+      this.disposeProjectile(laser);
     }
     this.playerLasers = [];
 
     // Clear enemy projectiles
     for (const proj of this.enemyProjectiles) {
-      this.scene.remove(proj.mesh);
-      proj.mesh.geometry.dispose();
-      (proj.mesh.material as THREE.Material).dispose();
+      this.disposeProjectile(proj);
     }
     this.enemyProjectiles = [];
 
@@ -816,5 +877,118 @@ export class Level05Runtime extends LevelRuntime {
     }
 
     return false;
+  }
+
+  private createProjectileId(prefix: "player" | "enemy"): string {
+    this.nextProjectileId += 1;
+    return `${prefix}-${this.nextProjectileId}`;
+  }
+
+  private syncProjectileStates(
+    projectiles: LaserProjectile[],
+    states: Level05ProjectileState[],
+    kind: "player" | "enemy"
+  ): void {
+    const wantedIds = new Set(states.map((state) => state.id));
+
+    for (let index = projectiles.length - 1; index >= 0; index -= 1) {
+      if (!wantedIds.has(projectiles[index].id)) {
+        this.disposeProjectile(projectiles[index]);
+        projectiles.splice(index, 1);
+      }
+    }
+
+    for (const state of states) {
+      let projectile = projectiles.find((current) => current.id === state.id);
+      if (!projectile) {
+        projectile = this.createSyncedProjectile(state, kind);
+        projectiles.push(projectile);
+      }
+
+      projectile.position.set(state.position.x, state.position.y, state.position.z);
+      projectile.mesh.position.copy(projectile.position);
+    }
+  }
+
+  private createSyncedProjectile(state: Level05ProjectileState, kind: "player" | "enemy"): LaserProjectile {
+    const mesh = kind === "player" ? this.createPlayerLaserMesh() : this.createEnemyProjectileMesh();
+    mesh.position.set(state.position.x, state.position.y, state.position.z);
+    this.scene.add(mesh);
+
+    return {
+      id: state.id,
+      mesh,
+      position: new THREE.Vector3(state.position.x, state.position.y, state.position.z),
+      velocity: new THREE.Vector3(),
+      spawnTime: Date.now()
+    };
+  }
+
+  private createPlayerLaserMesh(): THREE.Mesh {
+    const geom = new THREE.CylinderGeometry(0.03, 0.03, 0.35, 8);
+    geom.rotateX(Math.PI / 2);
+    return new THREE.Mesh(geom, new THREE.MeshBasicMaterial({ color: "#00ffff" }));
+  }
+
+  private createEnemyProjectileMesh(): THREE.Mesh {
+    return new THREE.Mesh(
+      new THREE.SphereGeometry(0.12, 8, 8),
+      new THREE.MeshBasicMaterial({ color: "#ff1122" })
+    );
+  }
+
+  private destroyBlock(block: DestructibleBlock): void {
+    if (block.destroyed) {
+      return;
+    }
+
+    try {
+      this.world.removeCollider(block.collider, true);
+      this.world.removeRigidBody(block.body);
+    } catch (error) {
+      console.warn("Error removing block body:", error);
+    }
+
+    this.scene.remove(block.mesh);
+    block.mesh.geometry.dispose();
+    (block.mesh.material as THREE.Material).dispose();
+    block.destroyed = true;
+  }
+
+  private destroyTurret(turret: EnemyTurret): void {
+    if (turret.destroyed) {
+      return;
+    }
+
+    this.scene.remove(turret.head);
+    this.scene.remove(turret.baseMesh);
+    turret.head.traverse((child) => {
+      if (child instanceof THREE.Mesh) {
+        child.geometry.dispose();
+        this.disposeMaterial(child.material);
+      }
+    });
+    turret.baseMesh.geometry.dispose();
+    this.disposeMaterial(turret.baseMesh.material);
+    turret.destroyed = true;
+  }
+
+  private disposeProjectile(projectile: LaserProjectile): void {
+    this.scene.remove(projectile.mesh);
+    projectile.mesh.geometry.dispose();
+    this.disposeMaterial(projectile.mesh.material);
+  }
+
+  private disposeMaterial(material: THREE.Material | THREE.Material[]): void {
+    if (Array.isArray(material)) {
+      material.forEach((entry) => entry.dispose());
+      return;
+    }
+
+    material.dispose();
+  }
+
+  private vectorToVec3(vector: THREE.Vector3): Vec3 {
+    return { x: vector.x, y: vector.y, z: vector.z };
   }
 }

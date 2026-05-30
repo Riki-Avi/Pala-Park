@@ -1,5 +1,5 @@
 import RAPIER from "@dimforge/rapier3d-compat";
-import type { LevelDefinition, RoomStatePayload } from "@game/shared";
+import type { RoomStatePayload } from "@game/shared";
 import { Game } from "./core/Game";
 import { ClientSocket } from "./network/ClientSocket";
 import "./styles.css";
@@ -37,6 +37,7 @@ async function bootstrap(): Promise<void> {
         <input id="room-code" type="text" maxlength="4" placeholder="CODIGO" />
         <button id="join-room" type="button">Unirse</button>
         <button id="start-game" type="button" style="display: none; background: #2f9a56; border-color: #2b844c; font-weight: bold; margin-left: 4px;">Iniciar partida</button>
+        <select id="level-select" style="display: none;" aria-label="Elegir nivel"></select>
         <div class="network-info">
           <span id="network-status">Modo local</span>
           <span id="server-target">Servidor: detectando...</span>
@@ -62,7 +63,6 @@ async function bootstrap(): Promise<void> {
   }
 
   const network = new ClientSocket();
-  setupNetworkUi(network);
   await initializeRapier();
 
   const objective = document.querySelector<HTMLSpanElement>("#objective");
@@ -71,6 +71,7 @@ async function bootstrap(): Promise<void> {
   }
 
   const levelFiles = await loadLevelFiles();
+  setupNetworkUi(network, levelFiles);
 
   const game = new Game(canvas, levelFiles);
   game.attachNetwork(network);
@@ -115,7 +116,7 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string)
   });
 }
 
-function setupNetworkUi(network: ClientSocket): void {
+function setupNetworkUi(network: ClientSocket, levelFiles: string[]): void {
   const createRoom = document.querySelector<HTMLButtonElement>("#create-room");
   const joinRoom = document.querySelector<HTMLButtonElement>("#join-room");
   const roomCode = document.querySelector<HTMLInputElement>("#room-code");
@@ -123,6 +124,7 @@ function setupNetworkUi(network: ClientSocket): void {
   const serverTarget = document.querySelector<HTMLSpanElement>("#server-target");
   const roomSlots = document.querySelector<HTMLSpanElement>("#room-slots");
   const startGame = document.querySelector<HTMLButtonElement>("#start-game");
+  const levelSelect = document.querySelector<HTMLSelectElement>("#level-select");
 
   if (serverTarget) {
     serverTarget.textContent = `Servidor: ${network.getServerUrl()}`;
@@ -135,20 +137,37 @@ function setupNetworkUi(network: ClientSocket): void {
     }
   });
   startGame?.addEventListener("click", () => network.startGame());
+  if (levelSelect) {
+    levelSelect.innerHTML = levelFiles
+      .map((_, index) => `<option value="${index}">Nivel ${index + 1}</option>`)
+      .join("");
+    levelSelect.value = String(Math.min(4, levelFiles.length - 1));
+    levelSelect.addEventListener("change", () => {
+      network.requestLevelChange(Number(levelSelect.value));
+    });
+  }
 
   let localPlayerId = "";
   let currentRoomState: RoomStatePayload | null = null;
 
   const updateStartButtonVisibility = () => {
     if (!startGame) return;
-    if (
+    const isHost = Boolean(
       currentRoomState &&
-      currentRoomState.state === "WAITING" &&
       localPlayerId === currentRoomState.hostPlayerId
-    ) {
+    );
+
+    if (isHost && currentRoomState?.state === "WAITING") {
       startGame.style.display = "inline-block";
     } else {
       startGame.style.display = "none";
+    }
+
+    if (levelSelect) {
+      levelSelect.style.display = isHost ? "inline-block" : "none";
+      if (currentRoomState) {
+        levelSelect.value = String(currentRoomState.levelIndex);
+      }
     }
   };
 
@@ -181,6 +200,11 @@ function setupNetworkUi(network: ClientSocket): void {
   network.onGameStarted((roomState) => {
     currentRoomState = roomState;
     updateStartButtonVisibility();
+  });
+  network.onLevelChanged((payload) => {
+    if (levelSelect) {
+      levelSelect.value = String(payload.levelIndex);
+    }
   });
 }
 

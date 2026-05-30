@@ -188,6 +188,27 @@ async function bootstrap(): Promise<void> {
       }
     });
 
+    socket.on("requestLevelChange", (payload: { levelIndex: number }) => {
+      const levelIndex = payload?.levelIndex;
+      if (!Number.isInteger(levelIndex) || levelIndex < 0 || levelIndex > 20) {
+        return;
+      }
+
+      const room = rooms.findRoomBySocket(socket.id);
+      const playerId = room?.getPlayerIdBySocket(socket.id);
+      if (!room || !playerId || playerId !== room.hostPlayerId) {
+        return;
+      }
+
+      room.changeLevel(levelIndex);
+      io.to(room.roomCode).emit("levelChanged", {
+        roomCode: room.roomCode,
+        byPlayerId: playerId,
+        levelIndex
+      });
+      emitRoomState(room.roomCode);
+    });
+
     socket.on("resetLevel", (payload: { reason: "fall" | "manual" }) => {
       const reason = payload?.reason;
       if (reason !== "fall" && reason !== "manual") {

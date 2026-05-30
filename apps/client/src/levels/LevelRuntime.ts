@@ -1,12 +1,19 @@
 import RAPIER from "@dimforge/rapier3d-compat";
 import * as THREE from "three";
-import type { LevelDefinition, LevelStatePayload, PlatformDefinition, Vec3 } from "@game/shared";
+import type {
+  LevelCustomStatePayload,
+  LevelDefinition,
+  LevelStatePayload,
+  PlatformDefinition,
+  Vec3
+} from "@game/shared";
 import { Button } from "../entities/Button";
 import { Door } from "../entities/Door";
 import { GoalZone } from "../entities/GoalZone";
 import { PushBox } from "../entities/PushBox";
 import { createBox, createButtonMesh, standardMaterials } from "../render/MeshFactory";
 import type { Player } from "../entities/Player";
+import type { InputManager } from "../input/InputManager";
 
 interface PhysicsObject {
   body: RAPIER.RigidBody;
@@ -35,7 +42,11 @@ export class LevelRuntime {
     this.createGoalZones();
   }
 
-  update(playerPositions: Vec3[], activePlayerIndex?: number, inputManager?: any): void {
+  updateLocal(playerPositions: Vec3[], activePlayerIndex?: number, inputManager?: InputManager): void {
+    // Override in subclasses for player-local controls that must run on every client.
+  }
+
+  update(playerPositions: Vec3[], activePlayerIndex?: number, inputManager?: InputManager): void {
     const weightPositions = [...playerPositions, ...this.boxes.map((box) => box.getPosition())];
 
     for (const button of this.buttons) {
@@ -116,7 +127,8 @@ export class LevelRuntime {
       doors: this.doors.map((door) => ({
         id: door.definition.id,
         open: door.open
-      }))
+      })),
+      custom: this.getCustomState()
     };
   }
 
@@ -136,6 +148,16 @@ export class LevelRuntime {
     for (const doorState of state.doors) {
       this.doors.find((door) => door.definition.id === doorState.id)?.setOpen(doorState.open);
     }
+
+    this.applyCustomState(state.custom);
+  }
+
+  protected getCustomState(): LevelCustomStatePayload | undefined {
+    return undefined;
+  }
+
+  protected applyCustomState(state: LevelCustomStatePayload | undefined): void {
+    // Override in subclasses for level-specific online state.
   }
 
   resetDynamicObjects(): void {
