@@ -8,6 +8,8 @@ import { Level05Runtime } from "./Level05Runtime";
 
 export class LevelController {
   private runtime: LevelRuntime | null = null;
+  private loadRequestId = 0;
+  private activeLoad: Promise<LevelRuntime> | null = null;
   public currentIndex = 0;
 
   constructor(
@@ -32,11 +34,13 @@ export class LevelController {
   }
 
   async load(index: number): Promise<LevelRuntime> {
-    this.currentIndex = index;
-    if (this.runtime) {
-      this.runtime.dispose();
-    }
+    const requestId = ++this.loadRequestId;
+    const load = this.loadRequested(index, requestId);
+    this.activeLoad = load;
+    return await load;
+  }
 
+  private async loadRequested(index: number, requestId: number): Promise<LevelRuntime> {
     const filename = this.levelFiles[index];
     const response = await fetch(`/levels/${filename}`);
     if (!response.ok) {
@@ -44,6 +48,12 @@ export class LevelController {
     }
     const definition = (await response.json()) as LevelDefinition;
 
+    if (requestId !== this.loadRequestId) {
+      return await (this.activeLoad ?? Promise.resolve(this.current));
+    }
+
+    this.runtime?.dispose();
+    this.currentIndex = index;
     this.runtime = this.createRuntime(definition);
     return this.runtime;
   }

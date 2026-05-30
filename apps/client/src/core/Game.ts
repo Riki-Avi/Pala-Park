@@ -1,5 +1,11 @@
 import * as THREE from "three";
-import { FIXED_DELTA, type LevelDefinition, type Vec3 } from "@game/shared";
+import {
+  FIXED_DELTA,
+  type LevelChangedPayload,
+  type LevelDefinition,
+  type RoomJoinedPayload,
+  type Vec3
+} from "@game/shared";
 import { GameRulesController } from "./GameRulesController";
 import { AudioManager } from "./AudioManager";
 import { Player } from "../entities/Player";
@@ -31,6 +37,7 @@ export class Game {
   private fpsTimer = 0;
   private animationFrame = 0;
   private pendingLevelChange = false;
+  private levelLoadRequestId = 0;
 
   constructor(private readonly canvas: HTMLCanvasElement, levelFiles: string[]) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -64,20 +71,12 @@ export class Game {
 
   attachNetwork(network: ClientSocket): void {
     this.online.attach(network, {
-      onSessionStarted: async (session) => {
-        this.activePlayerIndex = this.playerIndexFromId(session.playerId);
-        const startIndex = this.clampLevelIndex(session.roomState.levelIndex);
-        await this.loadLevel(startIndex);
-        document.querySelector("#objective")!.textContent =
-          `Online nivel ${startIndex + 1} - controlas ${session.playerId} - esperando 4 jugadores`;
+      onSessionStarted: (session) => {
+        void this.handleSessionStarted(session);
       },
       onLevelReset: (message) => this.resetLevel(message),
-      onLevelChanged: async (payload) => {
-        const nextIndex = this.clampLevelIndex(payload.levelIndex);
-        await this.loadLevel(nextIndex);
-        this.pendingLevelChange = false;
-        document.querySelector("#objective")!.textContent =
-          `Nivel ${nextIndex + 1} cargado por ${payload.byPlayerId}`;
+      onLevelChanged: (payload) => {
+        void this.handleLevelChanged(payload);
       }
     });
   }
@@ -92,6 +91,33 @@ export class Game {
 
   private get level() {
     return this.levelController.current;
+  }
+
+  private async handleSessionStarted(session: RoomJoinedPayload): Promise<void> {
+    try {
+      this.activePlayerIndex = this.playerIndexFromId(session.playerId);
+      const startIndex = this.clampLevelIndex(session.roomState.levelIndex);
+      const loaded = await this.loadLevel(startIndex);
+      if (loaded) {
+        document.querySelector("#objective")!.textContent =
+          `Online nivel ${startIndex + 1} - controlas ${session.playerId} - esperando 4 jugadores`;
+      }
+    } catch (error) {
+      this.showLevelLoadError(error);
+    }
+  }
+
+  private async handleLevelChanged(payload: LevelChangedPayload): Promise<void> {
+    try {
+      const nextIndex = this.clampLevelIndex(payload.levelIndex);
+      const loaded = await this.loadLevel(nextIndex);
+      if (loaded) {
+        document.querySelector("#objective")!.textContent =
+          `Nivel ${nextIndex + 1} cargado por ${payload.byPlayerId}`;
+      }
+    } catch (error) {
+      this.showLevelLoadError(error);
+    }
   }
 
   private readonly update = (): void => {
@@ -366,21 +392,31 @@ export class Game {
       return;
     }
 
-    this.pendingLevelChange = true;
     try {
-      await this.levelController.load(nextIndex);
-      this.resetLevel();
-      this.updateLevelText();
-    } finally {
-      this.pendingLevelChange = false;
+      await this.loadLevel(nextIndex);
+    } catch (error) {
+      this.showLevelLoadError(error);
     }
   }
 
-  private async loadLevel(levelIndex: number): Promise<void> {
+  private async loadLevel(levelIndex: number): Promise<boolean> {
+    const requestId = ++this.levelLoadRequestId;
+    this.pendingLevelChange = true;
     await this.levelController.load(levelIndex);
+    if (requestId !== this.levelLoadRequestId) {
+      return false;
+    }
+
     this.pendingLevelChange = false;
     this.resetLevel();
     this.updateLevelText();
+    return true;
+  }
+
+  private showLevelLoadError(error: unknown): void {
+    console.error("Level load failed", error);
+    this.pendingLevelChange = false;
+    document.querySelector("#objective")!.textContent = "Error cargando nivel - recarga la pagina";
   }
 
   private getGoalPlayerPositions(): Vec3[] {
