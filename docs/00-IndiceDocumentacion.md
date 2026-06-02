@@ -12,12 +12,13 @@ La idea es leer los archivos en orden. Cada archivo explica una parte concreta y
 4. `04-ExplicacionClienteGameLoop.md`
 5. `05-ExplicacionOnlineServidor.md`
 6. `06-ExplicacionSistemaNiveles.md`
-7. `ExplicacionNivel1.md`
-8. `ExplicacionNivel2.md`
-9. `ExplicacionNivel3.md`
-10. `ExplicacionNivel4.md`
-11. `ExplicacionNivel5.md`
-12. `ExplicacionNivel6.md`
+7. `07-EstructuraProyectoConLinks.md`
+8. `ExplicacionNivel1.md`
+9. `ExplicacionNivel2.md`
+10. `ExplicacionNivel3.md`
+11. `ExplicacionNivel4.md`
+12. `ExplicacionNivel5.md`
+13. `ExplicacionNivel6.md`
 
 ## Idea central del proyecto
 

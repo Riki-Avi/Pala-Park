@@ -64,4 +64,6 @@ Con `@game/shared`, los dos lados usan el mismo contrato.
 
 ## Continuacion
 
-Seguir con `04-ExplicacionClienteGameLoop.md`.
+Para ver la estructura con enlaces directos a explicaciones, seguir con `07-EstructuraProyectoConLinks.md`.
+
+Luego continuar con `04-ExplicacionClienteGameLoop.md`.
