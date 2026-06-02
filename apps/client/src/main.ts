@@ -141,7 +141,7 @@ function setupNetworkUi(network: ClientSocket, levelFiles: string[]): void {
     levelSelect.innerHTML = levelFiles
       .map((_, index) => `<option value="${index}">Nivel ${index + 1}</option>`)
       .join("");
-    levelSelect.value = String(Math.min(4, levelFiles.length - 1));
+    levelSelect.value = String(Math.min(5, levelFiles.length - 1));
     levelSelect.addEventListener("change", () => {
       network.requestLevelChange(Number(levelSelect.value));
     });

@@ -135,13 +135,13 @@ export class OnlineSessionController {
     return this.session?.players ?? [];
   }
 
-  sendPose(tick: number, player: Player, yaw: number): void {
+  sendPose(tick: number, player: Player, yaw: number, pitch: number): void {
     if (!this.network || !this.session || !this.isPlaying || tick === this.lastPoseSentTick) {
       return;
     }
 
     this.lastPoseSentTick = tick;
-    this.network.sendPlayerPose(player.getNetworkPose(this.session.playerId, yaw));
+    this.network.sendPlayerPose(player.getNetworkPose(this.session.playerId, yaw, pitch));
   }
 
   sendLevelState(tick: number, level: LevelRuntime): void {

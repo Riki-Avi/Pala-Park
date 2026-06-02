@@ -5,6 +5,7 @@ import { LevelRuntime } from "./LevelRuntime";
 import { Level03Runtime } from "./Level03Runtime";
 import { Level04Runtime } from "./Level04Runtime";
 import { Level05Runtime } from "./Level05Runtime";
+import { Level06Runtime } from "./Level06Runtime";
 
 export class LevelController {
   private runtime: LevelRuntime | null = null;
@@ -75,6 +76,9 @@ export class LevelController {
     }
     if (definition.id === "level-05") {
       return new Level05Runtime(definition, this.scene, this.world);
+    }
+    if (definition.id === "level-06") {
+      return new Level06Runtime(definition, this.scene, this.world);
     }
     return new LevelRuntime(definition, this.scene, this.world);
   }

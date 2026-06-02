@@ -42,6 +42,7 @@ export interface PlayerPose {
   position: Vec3;
   velocity: Vec3;
   yaw: number;
+  pitch: number;
   isActionActive: boolean;
 }
 

@@ -315,7 +315,7 @@ export class Player implements NetworkedEntity<PlayerSnapshot> {
     this.lastProcessedInput = snapshot.lastProcessedInput;
   }
 
-  getNetworkPose(playerId: string, yaw: number): PlayerPose {
+  getNetworkPose(playerId: string, yaw: number, pitch: number): PlayerPose {
     const position = this.body.translation();
     const velocity = this.body.linvel();
     return {
@@ -323,6 +323,7 @@ export class Player implements NetworkedEntity<PlayerSnapshot> {
       position: { x: position.x, y: position.y, z: position.z },
       velocity: { x: velocity.x, y: velocity.y, z: velocity.z },
       yaw,
+      pitch,
       isActionActive: this.isActionActive
     };
   }
@@ -351,7 +352,7 @@ export class Player implements NetworkedEntity<PlayerSnapshot> {
     this.body.setLinvel(pose.velocity, true);
     this.visualYaw = lerpAngle(this.visualYaw, pose.yaw, alpha);
     this.lookYaw = this.visualYaw;
-    this.lookPitch = 0;
+    this.lookPitch = pose.pitch;
     this.isActionActive = !!pose.isActionActive;
   }
 

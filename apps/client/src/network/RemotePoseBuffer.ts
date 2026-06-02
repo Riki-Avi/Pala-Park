@@ -46,6 +46,7 @@ export class RemotePoseBuffer {
       position: lerpVec3(from.pose.position, to.pose.position, alpha),
       velocity: lerpVec3(from.pose.velocity, to.pose.velocity, alpha),
       yaw: lerpAngle(from.pose.yaw, to.pose.yaw, alpha),
+      pitch: from.pose.pitch + (to.pose.pitch - from.pose.pitch) * alpha,
       isActionActive
     };
   }

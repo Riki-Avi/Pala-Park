@@ -18,7 +18,7 @@ export class GameRoom {
   state: RoomLifecycleState = "WAITING";
   tick = 0;
   hostPlayerId = "p1";
-  levelIndex = 4;
+  levelIndex = 5;
 
   constructor(readonly roomCode: string) {}
 

@@ -64,7 +64,7 @@ export class Game {
   }
 
   async start(): Promise<void> {
-    await this.loadLevel(this.clampLevelIndex(4)); // Inicia en Nivel 5 por defecto
+    await this.loadLevel(this.clampLevelIndex(5)); // Inicia en Nivel 6 por defecto
     this.clock.start();
     this.animationFrame = window.requestAnimationFrame(this.update);
   }
@@ -136,7 +136,15 @@ export class Game {
     }
     this.level.syncDynamicMeshes();
 
-    this.cameraController.update(this.players[this.activePlayerIndex], this.input.yaw, this.input.pitch, delta);
+    const isSpiderWebLevel = this.level.definition.id === "level-06";
+    this.input.setFullPitchLook(isSpiderWebLevel);
+    this.cameraController.update(
+      this.players[this.activePlayerIndex],
+      this.input.yaw,
+      this.input.pitch,
+      delta,
+      { fullOrbit: isSpiderWebLevel }
+    );
     this.renderer.render(this.scene, this.camera);
     this.updateFps(delta);
     this.animationFrame = window.requestAnimationFrame(this.update);
@@ -186,7 +194,7 @@ export class Game {
     if ((!this.online.isOnline || this.online.isHost) && this.level.definition.rules.respawnBoxesFromSky) {
       this.level.recoverFallenObjects();
     }
-    this.online.sendPose(this.tick, this.players[this.activePlayerIndex], this.input.yaw);
+    this.online.sendPose(this.tick, this.players[this.activePlayerIndex], this.input.yaw, this.input.pitch);
   }
 
   private createPlayers(spawnPoints: Vec3[]): void {

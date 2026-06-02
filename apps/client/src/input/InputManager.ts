@@ -26,6 +26,7 @@ export class InputManager {
   private sensitivity = 0.0024;
   private resetRequested = false;
   private switchPlayerRequested = false;
+  private fullPitchLook = false;
   yaw = 0;
   pitch = -0.35;
   private readonly maps = new Map<string, PlayerKeyMap>([
@@ -64,6 +65,13 @@ export class InputManager {
 
   getSensitivity(): number {
     return this.sensitivity;
+  }
+
+  setFullPitchLook(enabled: boolean): void {
+    this.fullPitchLook = enabled;
+    if (!enabled) {
+      this.pitch = Math.max(-1.2, Math.min(0.85, this.pitch));
+    }
   }
 
   consumeResetPressed(): boolean {
@@ -144,7 +152,9 @@ export class InputManager {
 
     this.yaw -= event.movementX * this.sensitivity;
     this.pitch -= event.movementY * this.sensitivity;
-    this.pitch = Math.max(-1.2, Math.min(0.85, this.pitch));
+    if (!this.fullPitchLook) {
+      this.pitch = Math.max(-1.2, Math.min(0.85, this.pitch));
+    }
   };
 
   private readonly handlePointerRequest = (): void => {

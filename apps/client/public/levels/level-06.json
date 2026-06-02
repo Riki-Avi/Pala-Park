@@ -1,0 +1,51 @@
+{
+  "id": "level-06",
+  "name": "Telaranas en Altura",
+  "objective": "Usen las tres telaranas para subir, empujen una caja al boton y crucen la puerta superior.",
+  "rules": {
+    "resetOnAnyPlayerFall": true,
+    "respawnBoxesFromSky": true,
+    "autoAdvanceOnComplete": true
+  },
+  "spawnPoints": [
+    { "x": -14.0, "y": 0.8, "z": -1.0 },
+    { "x": -14.0, "y": 0.8, "z": 1.0 },
+    { "x": -12.8, "y": 0.8, "z": -1.0 },
+    { "x": -12.8, "y": 0.8, "z": 1.0 }
+  ],
+  "platforms": [
+    { "id": "start-platform", "position": { "x": -13.0, "y": 0.0, "z": 0.0 }, "size": { "x": 6.5, "y": 0.6, "z": 5.0 } },
+    { "id": "lower-gap-helper", "position": { "x": -8.2, "y": -1.0, "z": 0.0 }, "size": { "x": 1.0, "y": 0.3, "z": 2.0 } },
+    { "id": "web-landing-1", "position": { "x": -5.3, "y": 2.6, "z": 0.0 }, "size": { "x": 3.0, "y": 0.5, "z": 3.0 } },
+    { "id": "web-landing-2", "position": { "x": 1.5, "y": 4.9, "z": 0.0 }, "size": { "x": 3.2, "y": 0.5, "z": 3.0 } },
+    { "id": "upper-platform", "position": { "x": 9.8, "y": 7.2, "z": 0.0 }, "size": { "x": 9.5, "y": 0.6, "z": 5.5 } },
+    { "id": "goal-platform", "position": { "x": 18.0, "y": 7.2, "z": 0.0 }, "size": { "x": 5.5, "y": 0.6, "z": 5.0 } },
+    { "id": "upper-rail-left", "position": { "x": 11.0, "y": 8.0, "z": -2.9 }, "size": { "x": 13.0, "y": 0.9, "z": 0.25 } },
+    { "id": "upper-rail-right", "position": { "x": 11.0, "y": 8.0, "z": 2.9 }, "size": { "x": 13.0, "y": 0.9, "z": 0.25 } }
+  ],
+  "boxes": [
+    { "id": "upper-box-1", "position": { "x": 8.2, "y": 8.05, "z": -0.9 }, "size": { "x": 1.0, "y": 1.0, "z": 1.0 } },
+    { "id": "upper-box-2", "position": { "x": 9.8, "y": 8.05, "z": 0.9 }, "size": { "x": 1.0, "y": 1.0, "z": 1.0 } },
+    { "id": "upper-box-3", "position": { "x": 11.0, "y": 8.05, "z": -0.2 }, "size": { "x": 1.0, "y": 1.0, "z": 1.0 } }
+  ],
+  "buttons": [
+    {
+      "id": "button-upper",
+      "position": { "x": 13.0, "y": 7.65, "z": 0.0 },
+      "size": { "x": 1.2, "y": 0.18, "z": 1.2 },
+      "targetDoorIds": ["door-upper"],
+      "mode": "hold"
+    }
+  ],
+  "doors": [
+    { "id": "door-upper", "position": { "x": 15.5, "y": 8.8, "z": 0.0 }, "size": { "x": 0.45, "y": 3.0, "z": 3.8 } }
+  ],
+  "goalZones": [
+    {
+      "id": "goal",
+      "position": { "x": 18.0, "y": 8.25, "z": 0.0 },
+      "size": { "x": 3.5, "y": 1.6, "z": 3.5 },
+      "requiredPlayers": 2
+    }
+  ]
+}
