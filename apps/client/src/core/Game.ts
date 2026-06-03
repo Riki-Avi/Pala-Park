@@ -38,6 +38,7 @@ export class Game {
   private animationFrame = 0;
   private pendingLevelChange = false;
   private levelLoadRequestId = 0;
+  private levelIniciatation = 7;
 
   constructor(private readonly canvas: HTMLCanvasElement, levelFiles: string[]) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -64,7 +65,7 @@ export class Game {
   }
 
   async start(): Promise<void> {
-    await this.loadLevel(this.clampLevelIndex(5)); // Inicia en Nivel 6 por defecto
+    await this.loadLevel(this.clampLevelIndex(this.levelIniciatation)); 
     this.clock.start();
     this.animationFrame = window.requestAnimationFrame(this.update);
   }
@@ -136,7 +137,8 @@ export class Game {
     }
     this.level.syncDynamicMeshes();
 
-    const isSpiderWebLevel = this.level.definition.id === "level-06";
+    const isSpiderWebLevel =
+      this.level.definition.id === "level-06" || this.level.definition.id === "level-07";
     this.input.setFullPitchLook(isSpiderWebLevel);
     this.cameraController.update(
       this.players[this.activePlayerIndex],

@@ -5,7 +5,7 @@ import { LevelRuntime } from "./LevelRuntime";
 import type { Player } from "../entities/Player";
 import type { InputManager } from "../input/InputManager";
 
-export class Level06Runtime extends LevelRuntime {
+export class Level07Runtime extends LevelRuntime {
   private readonly spiderWeb = new SpiderWebAbility(
     this.scene,
     () => this.getWebSurfaces()
