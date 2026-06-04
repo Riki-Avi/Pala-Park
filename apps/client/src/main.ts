@@ -41,7 +41,7 @@ async function bootstrap(): Promise<void> {
         <div class="network-info">
           <span id="network-status">Modo local</span>
           <span id="server-target">Servidor: detectando...</span>
-          <span id="room-slots">Sala: 0/4</span>
+          <span id="room-slots">Sala: 0/2</span>
         </div>
       </section>
       <section class="controls" aria-label="Controles">
@@ -141,7 +141,7 @@ function setupNetworkUi(network: ClientSocket, levelFiles: string[]): void {
     levelSelect.innerHTML = levelFiles
       .map((_, index) => `<option value="${index}">Nivel ${index + 1}</option>`)
       .join("");
-    levelSelect.value = String(Math.min(5, levelFiles.length - 1));
+    levelSelect.value = String(Math.min(7, levelFiles.length - 1));
     levelSelect.addEventListener("change", () => {
       network.requestLevelChange(Number(levelSelect.value));
     });

@@ -93,7 +93,20 @@ export interface Level05StatePayload {
   enemyProjectiles: Level05ProjectileState[];
 }
 
-export type LevelCustomStatePayload = Level04StatePayload | Level05StatePayload;
+export interface Level08MovingObstacleState {
+  id: string;
+  position: Vec3;
+  direction?: number;
+  turnIn?: number;
+  changeCount?: number;
+}
+
+export interface Level08StatePayload {
+  type: "level-08";
+  obstacles: Level08MovingObstacleState[];
+}
+
+export type LevelCustomStatePayload = Level04StatePayload | Level05StatePayload | Level08StatePayload;
 
 export interface LevelStatePayload {
   roomCode: string;

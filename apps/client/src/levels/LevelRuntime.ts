@@ -16,6 +16,7 @@ import type { Player } from "../entities/Player";
 import type { InputManager } from "../input/InputManager";
 
 interface PhysicsObject {
+  id: string;
   body: RAPIER.RigidBody;
   collider: RAPIER.Collider;
 }
@@ -27,7 +28,8 @@ export class LevelRuntime {
   readonly buttons: Button[] = [];
   readonly doors: Door[] = [];
   readonly goalZones: GoalZone[] = [];
-  private readonly physicsObjects: PhysicsObject[] = [];
+  protected readonly physicsObjects: PhysicsObject[] = [];
+  protected readonly platformMeshes = new Map<string, THREE.Mesh>();
   public shouldReset = false;
 
   constructor(
@@ -106,6 +108,7 @@ export class LevelRuntime {
 
     this.objects.length = 0;
     this.physicsObjects.length = 0;
+    this.platformMeshes.clear();
   }
 
   syncDynamicMeshes(): void {
@@ -205,6 +208,7 @@ export class LevelRuntime {
       this.scene.add(mesh);
       this.objects.push(mesh);
       this.platforms.push(platform);
+      this.platformMeshes.set(platform.id, mesh);
 
       const body = this.world.createRigidBody(
         RAPIER.RigidBodyDesc.fixed().setTranslation(
@@ -221,7 +225,7 @@ export class LevelRuntime {
         ),
         body
       );
-      this.physicsObjects.push({ body, collider });
+      this.physicsObjects.push({ id: platform.id, body, collider });
     }
   }
 

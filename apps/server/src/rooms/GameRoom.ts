@@ -18,7 +18,8 @@ export class GameRoom {
   state: RoomLifecycleState = "WAITING";
   tick = 0;
   hostPlayerId = "p1";
-  levelIndex = 5;
+  levelIndex = 7;
+  private readonly requiredPlayers = 2;
 
   constructor(readonly roomCode: string) {}
 
@@ -40,7 +41,7 @@ export class GameRoom {
     this.players.set(playerId, socketId);
     this.clientIds.set(playerId, clientId);
     this.disconnectedAt.delete(playerId);
-    if (wasWaiting && this.clientIds.size >= MAX_PLAYERS_PER_ROOM) {
+    if (wasWaiting && this.clientIds.size >= this.requiredPlayers) {
       this.state = "PLAYING";
     }
     this.updateHost();
@@ -98,7 +99,7 @@ export class GameRoom {
       roomCode: this.roomCode,
       state: this.state,
       players: this.getPlayers(),
-      requiredPlayers: MAX_PLAYERS_PER_ROOM,
+      requiredPlayers: this.requiredPlayers,
       hostPlayerId: this.hostPlayerId,
       levelIndex: this.levelIndex
     };

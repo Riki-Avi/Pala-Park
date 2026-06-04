@@ -6,12 +6,15 @@ interface RopeChain {
   pB: Player;
   visualLine: THREE.Line;
   maxLength: number;
+  wrapAnchors: THREE.Vector3[];
 }
 
 interface RopeAbilityOptions {
   maxLength?: number;
   visualPoints?: number;
   floorBlockDepth?: number;
+  wrapObstaclesAtRopeHeight?: boolean;
+  persistObstacleWrap?: boolean;
 }
 
 const DEFAULT_MAX_LENGTH = 3.2;
@@ -19,6 +22,7 @@ const DEFAULT_VISUAL_POINTS = 10;
 const DEFAULT_FLOOR_BLOCK_DEPTH = 40;
 const OBSTACLE_MARGIN = 0.08;
 const WAYPOINT_OFFSET = 0.14;
+const WAYPOINT_VERTICAL_CLEARANCE = 0.08;
 
 export class RopeAbility {
   private ropeChains: RopeChain[] = [];
@@ -26,6 +30,8 @@ export class RopeAbility {
   private readonly maxLength: number;
   private readonly visualPoints: number;
   private readonly floorBlockDepth: number;
+  private readonly wrapObstaclesAtRopeHeight: boolean;
+  private readonly persistObstacleWrap: boolean;
 
   constructor(
     private readonly scene: THREE.Scene,
@@ -35,6 +41,8 @@ export class RopeAbility {
     this.maxLength = options.maxLength ?? DEFAULT_MAX_LENGTH;
     this.visualPoints = options.visualPoints ?? DEFAULT_VISUAL_POINTS;
     this.floorBlockDepth = options.floorBlockDepth ?? DEFAULT_FLOOR_BLOCK_DEPTH;
+    this.wrapObstaclesAtRopeHeight = options.wrapObstaclesAtRopeHeight ?? false;
+    this.persistObstacleWrap = options.persistObstacleWrap ?? false;
   }
 
   start(players: Player[]): void {
@@ -62,7 +70,7 @@ export class RopeAbility {
     for (const chain of this.ropeChains) {
       const posA = getPlayerRopePoint(chain.pA);
       const posB = getPlayerRopePoint(chain.pB);
-      const path = this.findCollisionPath(posA, posB);
+      const path = this.getRopePath(chain, posA, posB);
       const pathLength = getPathLength(path);
 
       if (pathLength <= 0.05) {
@@ -95,7 +103,8 @@ export class RopeAbility {
       pA,
       pB,
       visualLine,
-      maxLength: this.maxLength
+      maxLength: this.maxLength,
+      wrapAnchors: []
     });
   }
 
@@ -122,7 +131,7 @@ export class RopeAbility {
     for (const chain of this.ropeChains) {
       const posA = getPlayerRopePoint(chain.pA);
       const posB = getPlayerRopePoint(chain.pB);
-      const path = this.findCollisionPath(posA, posB);
+      const path = this.getRopePath(chain, posA, posB);
       const distance = getPathLength(path);
 
       if (path.length < 2 || distance <= chain.maxLength || distance <= 0.0001) {
@@ -199,6 +208,51 @@ export class RopeAbility {
     }
   }
 
+  private getRopePath(chain: RopeChain, from: THREE.Vector3, to: THREE.Vector3): THREE.Vector3[] {
+    if (!this.persistObstacleWrap) {
+      return this.findCollisionPath(from, to);
+    }
+
+    return this.findPersistentWrapPath(chain, from, to);
+  }
+
+  private findPersistentWrapPath(chain: RopeChain, from: THREE.Vector3, to: THREE.Vector3): THREE.Vector3[] {
+    const obstacleBoxes = this.getObstacleBoxes();
+
+    if (obstacleBoxes.length === 0) {
+      chain.wrapAnchors = [];
+      return [from, to];
+    }
+
+    let anchors = simplifyWrapAnchors(from, to, chain.wrapAnchors, obstacleBoxes);
+    let guard = 0;
+
+    while (guard < 6) {
+      guard += 1;
+      const points = [from, ...anchors, to];
+      const blockedIndex = findBlockedSegmentIndex(points, obstacleBoxes);
+
+      if (blockedIndex === -1) {
+        chain.wrapAnchors = anchors;
+        return removeAdjacentDuplicates(points);
+      }
+
+      const segmentPath = this.findCollisionPath(points[blockedIndex], points[blockedIndex + 1]);
+      const segmentAnchors = segmentPath.slice(1, -1);
+
+      if (segmentAnchors.length === 0) {
+        break;
+      }
+
+      anchors.splice(blockedIndex, 0, ...segmentAnchors);
+      anchors = simplifyWrapAnchors(from, to, anchors, obstacleBoxes);
+    }
+
+    const fallback = this.findCollisionPath(from, to);
+    chain.wrapAnchors = fallback.length > 2 ? fallback.slice(1, -1) : [];
+    return fallback;
+  }
+
   private findCollisionPath(from: THREE.Vector3, to: THREE.Vector3): THREE.Vector3[] {
     const obstacleBoxes = this.getObstacleBoxes();
 
@@ -230,7 +284,7 @@ export class RopeAbility {
     const nodes = [
       fromProj,
       toProj,
-      ...createWaypointCandidates(obstacleBoxes)
+      ...createWaypointCandidates(obstacleBoxes, fromProj, toProj, this.wrapObstaclesAtRopeHeight)
     ];
     const path = findShortestClearPath(nodes, obstacleBoxes);
 
@@ -298,7 +352,12 @@ function getGroupStrength(players: Player[], pullDirection: THREE.Vector3): numb
   return weight + 2.0 * pull;
 }
 
-function createWaypointCandidates(boxes: THREE.Box3[]): THREE.Vector3[] {
+function createWaypointCandidates(
+  boxes: THREE.Box3[],
+  from: THREE.Vector3,
+  to: THREE.Vector3,
+  wrapObstaclesAtRopeHeight: boolean
+): THREE.Vector3[] {
   const candidates: THREE.Vector3[] = [];
   const edges = [
     [0, 1], [2, 3], [4, 5], [6, 7],
@@ -310,6 +369,30 @@ function createWaypointCandidates(boxes: THREE.Box3[]): THREE.Vector3[] {
     const { min, max } = box;
     const center = new THREE.Vector3();
     box.getCenter(center);
+
+    if (wrapObstaclesAtRopeHeight && isExtendedFloorBlocker(box)) {
+      candidates.push(...createFloorEdgeCandidates(box, from, to));
+      continue;
+    }
+
+    if (wrapObstaclesAtRopeHeight && !isExtendedFloorBlocker(box)) {
+      const horizontalYLevels = getHorizontalWaypointYLevels(box, from, to);
+
+      for (const y of horizontalYLevels) {
+        candidates.push(
+          offsetAwayFromBoxXZ(new THREE.Vector3(min.x, y, min.z), center),
+          offsetAwayFromBoxXZ(new THREE.Vector3(max.x, y, min.z), center),
+          offsetAwayFromBoxXZ(new THREE.Vector3(min.x, y, max.z), center),
+          offsetAwayFromBoxXZ(new THREE.Vector3(max.x, y, max.z), center),
+          offsetAwayFromBoxXZ(new THREE.Vector3(min.x, y, center.z), center),
+          offsetAwayFromBoxXZ(new THREE.Vector3(max.x, y, center.z), center),
+          offsetAwayFromBoxXZ(new THREE.Vector3(center.x, y, min.z), center),
+          offsetAwayFromBoxXZ(new THREE.Vector3(center.x, y, max.z), center)
+        );
+      }
+
+      continue;
+    }
 
     const corners = [
       new THREE.Vector3(min.x, min.y, min.z),
@@ -428,6 +511,45 @@ function isWholePathClear(path: THREE.Vector3[], boxes: THREE.Box3[]): boolean {
     }
   }
   return true;
+}
+
+function findBlockedSegmentIndex(path: THREE.Vector3[], boxes: THREE.Box3[]): number {
+  for (let index = 0; index < path.length - 1; index += 1) {
+    if (!isSegmentClear(path[index], path[index + 1], boxes)) {
+      return index;
+    }
+  }
+
+  return -1;
+}
+
+function simplifyWrapAnchors(
+  from: THREE.Vector3,
+  to: THREE.Vector3,
+  anchors: THREE.Vector3[],
+  boxes: THREE.Box3[]
+): THREE.Vector3[] {
+  const result = anchors.map((anchor) => anchor.clone());
+  let changed = true;
+
+  while (changed) {
+    changed = false;
+
+    for (let index = 0; index < result.length; index += 1) {
+      const previous = index === 0 ? from : result[index - 1];
+      const next = index === result.length - 1 ? to : result[index + 1];
+
+      if (!isSegmentClear(previous, next, boxes)) {
+        continue;
+      }
+
+      result.splice(index, 1);
+      changed = true;
+      break;
+    }
+  }
+
+  return removeAdjacentDuplicates(result);
 }
 
 function isSegmentClear(from: THREE.Vector3, to: THREE.Vector3, boxes: THREE.Box3[]): boolean {
@@ -583,11 +705,74 @@ function extendFloorObstacleDownward(box: THREE.Box3, depth: number): void {
   box.min.y = Math.min(box.min.y, box.max.y - depth);
 }
 
+function getHorizontalWaypointYLevels(
+  box: THREE.Box3,
+  from: THREE.Vector3,
+  to: THREE.Vector3
+): number[] {
+  const minY = box.min.y + WAYPOINT_VERTICAL_CLEARANCE;
+  const maxY = box.max.y - WAYPOINT_VERTICAL_CLEARANCE;
+
+  if (minY > maxY) {
+    return [];
+  }
+
+  return dedupeNumbers([
+    THREE.MathUtils.clamp(from.y, minY, maxY),
+    THREE.MathUtils.clamp(to.y, minY, maxY),
+    THREE.MathUtils.clamp((from.y + to.y) * 0.5, minY, maxY)
+  ]);
+}
+
+function createFloorEdgeCandidates(
+  box: THREE.Box3,
+  from: THREE.Vector3,
+  to: THREE.Vector3
+): THREE.Vector3[] {
+  return dedupePoints([
+    getNearestFloorEdgePoint(box, from),
+    getNearestFloorEdgePoint(box, to),
+    getNearestFloorEdgePoint(box, from.clone().lerp(to, 0.5))
+  ]);
+}
+
+function getNearestFloorEdgePoint(box: THREE.Box3, point: THREE.Vector3): THREE.Vector3 {
+  const x = THREE.MathUtils.clamp(point.x, box.min.x, box.max.x);
+  const z = THREE.MathUtils.clamp(point.z, box.min.z, box.max.z);
+  const distances = [
+    { side: "minX" as const, value: Math.abs(point.x - box.min.x) },
+    { side: "maxX" as const, value: Math.abs(point.x - box.max.x) },
+    { side: "minZ" as const, value: Math.abs(point.z - box.min.z) },
+    { side: "maxZ" as const, value: Math.abs(point.z - box.max.z) }
+  ].sort((a, b) => a.value - b.value);
+  const y = box.max.y + WAYPOINT_OFFSET;
+
+  switch (distances[0].side) {
+    case "minX":
+      return new THREE.Vector3(box.min.x - WAYPOINT_OFFSET, y, z);
+    case "maxX":
+      return new THREE.Vector3(box.max.x + WAYPOINT_OFFSET, y, z);
+    case "minZ":
+      return new THREE.Vector3(x, y, box.min.z - WAYPOINT_OFFSET);
+    case "maxZ":
+      return new THREE.Vector3(x, y, box.max.z + WAYPOINT_OFFSET);
+  }
+}
+
 function offsetAwayFromBox(point: THREE.Vector3, center: THREE.Vector3): THREE.Vector3 {
   const direction = point.clone().sub(center);
   if (direction.lengthSq() <= 0.0001) {
     return point.clone();
   }
+  return point.clone().addScaledVector(direction.normalize(), WAYPOINT_OFFSET);
+}
+
+function offsetAwayFromBoxXZ(point: THREE.Vector3, center: THREE.Vector3): THREE.Vector3 {
+  const direction = new THREE.Vector3(point.x - center.x, 0, point.z - center.z);
+  if (direction.lengthSq() <= 0.0001) {
+    return point.clone();
+  }
+
   return point.clone().addScaledVector(direction.normalize(), WAYPOINT_OFFSET);
 }
 
@@ -602,6 +787,19 @@ function dedupePoints(points: THREE.Vector3[]): THREE.Vector3[] {
     }
     seen.add(key);
     result.push(point);
+  }
+
+  return result;
+}
+
+function dedupeNumbers(values: number[]): number[] {
+  const result: number[] = [];
+
+  for (const value of values) {
+    if (result.some((entry) => Math.abs(entry - value) < 0.001)) {
+      continue;
+    }
+    result.push(value);
   }
 
   return result;

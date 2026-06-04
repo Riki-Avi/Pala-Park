@@ -38,7 +38,7 @@ export class Game {
   private animationFrame = 0;
   private pendingLevelChange = false;
   private levelLoadRequestId = 0;
-  private levelIniciatation = 3;
+  private levelIniciatation = 7;
 
   constructor(private readonly canvas: HTMLCanvasElement, levelFiles: string[]) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -101,7 +101,7 @@ export class Game {
       const loaded = await this.loadLevel(startIndex);
       if (loaded) {
         document.querySelector("#objective")!.textContent =
-          `Online nivel ${startIndex + 1} - controlas ${session.playerId} - esperando 4 jugadores`;
+          `Online nivel ${startIndex + 1} - controlas ${session.playerId} - esperando ${session.roomState.requiredPlayers} jugadores`;
       }
     } catch (error) {
       this.showLevelLoadError(error);
