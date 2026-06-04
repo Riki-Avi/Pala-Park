@@ -195,18 +195,42 @@ export class RopeAbility {
   private findCollisionPath(from: THREE.Vector3, to: THREE.Vector3): THREE.Vector3[] {
     const obstacleBoxes = this.getObstacleBoxes();
 
-    if (obstacleBoxes.length === 0 || isSegmentClear(from, to, obstacleBoxes)) {
+    if (obstacleBoxes.length === 0) {
+      return [from, to];
+    }
+
+    let fromProj = from.clone();
+    let toProj = to.clone();
+
+    // If endpoints are inside/penetrating any obstacle box, project them to the surface
+    for (const box of obstacleBoxes) {
+      if (box.containsPoint(fromProj)) {
+        fromProj = projectPointToBoxSurface(fromProj, box);
+      }
+      if (box.containsPoint(toProj)) {
+        toProj = projectPointToBoxSurface(toProj, box);
+      }
+    }
+
+    if (isSegmentClear(fromProj, toProj, obstacleBoxes)) {
       return [from, to];
     }
 
     const nodes = [
-      from.clone(),
-      to.clone(),
+      fromProj,
+      toProj,
       ...createWaypointCandidates(obstacleBoxes)
     ];
     const path = findShortestClearPath(nodes, obstacleBoxes);
 
-    return path ?? [from];
+    if (path) {
+      // Replace the projected endpoints back with the original player centers for visual continuity
+      path[0] = from.clone();
+      path[path.length - 1] = to.clone();
+      return path;
+    }
+
+    return [from, to];
   }
 
   private getObstacleBoxes(): THREE.Box3[] {
@@ -486,4 +510,32 @@ function disposeMaterial(material: THREE.Material | THREE.Material[]): void {
   }
 
   material.dispose();
+}
+
+function projectPointToBoxSurface(p: THREE.Vector3, box: THREE.Box3): THREE.Vector3 {
+  const min = box.min;
+  const max = box.max;
+
+  if (p.x < min.x || p.x > max.x || p.y < min.y || p.y > max.y || p.z < min.z || p.z > max.z) {
+    return p.clone();
+  }
+
+  const dx_min = p.x - min.x;
+  const dx_max = max.x - p.x;
+  const dy_min = p.y - min.y;
+  const dy_max = max.y - p.y;
+  const dz_min = p.z - min.z;
+  const dz_max = max.z - p.z;
+
+  const minDist = Math.min(dx_min, dx_max, dy_min, dy_max, dz_min, dz_max);
+  const result = p.clone();
+
+  if (minDist === dx_min) result.x = min.x;
+  else if (minDist === dx_max) result.x = max.x;
+  else if (minDist === dy_min) result.y = min.y;
+  else if (minDist === dy_max) result.y = max.y;
+  else if (minDist === dz_min) result.z = min.z;
+  else if (minDist === dz_max) result.z = max.z;
+
+  return result;
 }

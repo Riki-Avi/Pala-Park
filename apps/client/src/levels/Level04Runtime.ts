@@ -49,8 +49,7 @@ export class Level04Runtime extends LevelRuntime {
       }
     });
 
-    // Connect only 2 players as required for level-04
-    this.rope.start(players.slice(0, 2));
+    this.rope.start(players);
   }
 
   override updateLocal(playerPositions: Vec3[], activePlayerIndex?: number, inputManager?: InputManager): void {
