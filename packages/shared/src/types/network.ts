@@ -106,7 +106,20 @@ export interface Level08StatePayload {
   obstacles: Level08MovingObstacleState[];
 }
 
-export type LevelCustomStatePayload = Level04StatePayload | Level05StatePayload | Level08StatePayload;
+export interface Level09StatePayload {
+  type: "level-09";
+  ballPosition: Vec3;
+  ballVelocity: Vec3;
+  eliminated: boolean[];
+  scores: number[];
+  winnerIndex: number | null;
+}
+
+export type LevelCustomStatePayload =
+  | Level04StatePayload
+  | Level05StatePayload
+  | Level08StatePayload
+  | Level09StatePayload;
 
 export interface LevelStatePayload {
   roomCode: string;
