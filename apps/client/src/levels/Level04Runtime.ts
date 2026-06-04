@@ -5,34 +5,29 @@ import type { Player } from "../entities/Player";
 import { AudioManager } from "../core/AudioManager";
 import type { InputManager } from "../input/InputManager";
 
-interface RopeChain {
-  pA: Player;
-  pB: Player;
-  visualLine: THREE.Line;
-  maxLength: number;
-}
+import { RopeAbility } from "../abilities/RopeAbility";
 
 export class Level04Runtime extends LevelRuntime {
   private keyCollected = false;
   private keyGroup: THREE.Group | null = null;
-  
-  private ropeChains: RopeChain[] = [];
   private levelPlayers: Player[] = [];
+  
+  private readonly rope = new RopeAbility(
+    this.scene,
+    () => this.getRopeSurfaces()
+  );
 
   override getDeathThreshold(): number {
     return -15.0; // Lower death threshold for Level 4
   }
 
   override prepareReset(players: Player[]): void {
-    this.clearRopesAndJoints();
+    this.rope.prepareReset(players);
     this.levelPlayers = players;
   }
 
   override onLevelStart(players: Player[]): void {
     this.keyCollected = false;
-
-    // Clear previous physics joints, bodies, and visual ropes first
-    this.clearRopesAndJoints();
 
     this.levelPlayers = players;
 
@@ -54,46 +49,16 @@ export class Level04Runtime extends LevelRuntime {
       }
     });
 
-    // Create stable visual ropes. Physical joint chains were too unstable and could launch players.
-    if (players.length >= 4) {
-      const maxRopeLength = 3.2;
-      const visualPoints = 10;
-
-      for (let i = 0; i < 3; i++) {
-        const pA = players[i];
-        const pB = players[i + 1];
-
-        const points: THREE.Vector3[] = [];
-        for (let k = 0; k < visualPoints; k++) {
-          points.push(new THREE.Vector3());
-        }
-
-        const geometry = new THREE.BufferGeometry().setFromPoints(points);
-        const material = new THREE.LineBasicMaterial({
-          color: "#c69c6d", // Beige/cuerda
-          linewidth: 3
-        });
-        const visualLine = new THREE.Line(geometry, material);
-        visualLine.castShadow = true;
-        visualLine.frustumCulled = false; // Prevent culling issues when players move away from origin
-        this.scene.add(visualLine);
-
-        this.ropeChains.push({
-          pA,
-          pB,
-          visualLine,
-          maxLength: maxRopeLength
-        });
-      }
-    }
+    // Connect only 2 players as required for level-04
+    this.rope.start(players.slice(0, 2));
   }
 
   override updateLocal(playerPositions: Vec3[], activePlayerIndex?: number, inputManager?: InputManager): void {
-    this.applyStableRopeLimits();
+    this.rope.update();
   }
 
   override update(playerPositions: Vec3[], activePlayerIndex?: number, inputManager?: InputManager): void {
-    this.applyStableRopeLimits();
+    this.rope.update();
 
     // 1. Check key collection
     if (!this.keyCollected && this.keyGroup) {
@@ -137,25 +102,7 @@ export class Level04Runtime extends LevelRuntime {
   override syncDynamicMeshes(): void {
     super.syncDynamicMeshes();
 
-    // Update ropes positions to track player centers with a gentle sag.
-    for (const chain of this.ropeChains) {
-      const positions = chain.visualLine.geometry.attributes.position.array as Float32Array;
-      const posA = chain.pA.body.translation();
-      const posB = chain.pB.body.translation();
-      const pointCount = positions.length / 3;
-
-      for (let index = 0; index < pointCount; index += 1) {
-        const t = pointCount <= 1 ? 0 : index / (pointCount - 1);
-        const sag = Math.sin(t * Math.PI) * 0.18;
-        positions[index * 3] = THREE.MathUtils.lerp(posA.x, posB.x, t);
-        positions[index * 3 + 1] = THREE.MathUtils.lerp(posA.y, posB.y, t) - sag;
-        positions[index * 3 + 2] = THREE.MathUtils.lerp(posA.z, posB.z, t);
-      }
-
-      chain.visualLine.geometry.attributes.position.needsUpdate = true;
-      chain.visualLine.geometry.computeBoundingSphere();
-      chain.visualLine.geometry.computeBoundingBox();
-    }
+    this.rope.syncMeshes();
 
     // Smoothly animate the door-gate sliding down into the floor when opened
     for (const door of this.doors) {
@@ -174,7 +121,7 @@ export class Level04Runtime extends LevelRuntime {
   }
 
   override dispose(): void {
-    this.clearRopesAndJoints();
+    this.rope.dispose();
 
     if (this.keyGroup) {
       this.scene.remove(this.keyGroup);
@@ -254,53 +201,15 @@ export class Level04Runtime extends LevelRuntime {
     }
   }
 
-  private clearRopesAndJoints(): void {
-    for (const chain of this.ropeChains) {
-      this.scene.remove(chain.visualLine);
-      chain.visualLine.geometry.dispose();
-      (chain.visualLine.material as THREE.Material).dispose();
-    }
-    this.ropeChains = [];
-  }
+  private getRopeSurfaces(): THREE.Object3D[] {
+    const ignored = new Set<THREE.Object3D>([
+      ...this.buttons.map((button) => button.mesh),
+      ...this.goalZones.map((goalZone) => goalZone.mesh)
+    ]);
 
-  private applyStableRopeLimits(): void {
-    for (const chain of this.ropeChains) {
-      const posA = chain.pA.body.translation();
-      const posB = chain.pB.body.translation();
-      const dx = posB.x - posA.x;
-      const dy = posB.y - posA.y;
-      const dz = posB.z - posA.z;
-      const distance = Math.hypot(dx, dy, dz);
-
-      if (distance <= chain.maxLength || distance <= 0.0001) {
-        continue;
-      }
-
-      const excess = Math.min(distance - chain.maxLength, 0.75);
-      const nx = dx / distance;
-      const ny = dy / distance;
-      const nz = dz / distance;
-      const pull = Math.min(excess * 4.5, 3.0);
-      const velocityA = chain.pA.body.linvel();
-      const velocityB = chain.pB.body.linvel();
-
-      chain.pA.body.setLinvel(
-        {
-          x: clampVelocity(velocityA.x + nx * pull),
-          y: clampVelocity(velocityA.y + ny * pull),
-          z: clampVelocity(velocityA.z + nz * pull)
-        },
-        true
-      );
-      chain.pB.body.setLinvel(
-        {
-          x: clampVelocity(velocityB.x - nx * pull),
-          y: clampVelocity(velocityB.y - ny * pull),
-          z: clampVelocity(velocityB.z - nz * pull)
-        },
-        true
-      );
-    }
+    return this.objects.filter(
+      (object) => object.visible && object instanceof THREE.Mesh && !ignored.has(object)
+    );
   }
 }
 
