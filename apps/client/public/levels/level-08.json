@@ -1,0 +1,34 @@
+{
+  "id": "level-08",
+  "name": "Borrador Cuerda",
+  "objective": "Nivel base para disenar una mecanica con cuerda.",
+  "rules": {
+    "resetOnAnyPlayerFall": true,
+    "respawnBoxesFromSky": false,
+    "autoAdvanceOnComplete": true
+  },
+  "spawnPoints": [
+    { "x": -2.4, "y": 0.8, "z": -0.9 },
+    { "x": -2.4, "y": 0.8, "z": 0.9 },
+    { "x": -1.2, "y": 0.8, "z": -0.9 },
+    { "x": -1.2, "y": 0.8, "z": 0.9 }
+  ],
+  "platforms": [
+    {
+      "id": "floor-start",
+      "position": { "x": -1.5, "y": 0.0, "z": 0.0 },
+      "size": { "x": 7.0, "y": 0.6, "z": 7.0 }
+    }
+  ],
+  "boxes": [],
+  "buttons": [],
+  "doors": [],
+  "goalZones": [
+    {
+      "id": "goal",
+      "position": { "x": 18.0, "y": 1.05, "z": 0.0 },
+      "size": { "x": 2.5, "y": 1.5, "z": 2.5 },
+      "requiredPlayers": 4
+    }
+  ]
+}

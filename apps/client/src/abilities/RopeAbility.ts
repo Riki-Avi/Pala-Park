@@ -11,10 +11,12 @@ interface RopeChain {
 interface RopeAbilityOptions {
   maxLength?: number;
   visualPoints?: number;
+  floorBlockDepth?: number;
 }
 
 const DEFAULT_MAX_LENGTH = 3.2;
 const DEFAULT_VISUAL_POINTS = 10;
+const DEFAULT_FLOOR_BLOCK_DEPTH = 40;
 const OBSTACLE_MARGIN = 0.08;
 const WAYPOINT_OFFSET = 0.14;
 
@@ -23,6 +25,7 @@ export class RopeAbility {
   private players: Player[] = [];
   private readonly maxLength: number;
   private readonly visualPoints: number;
+  private readonly floorBlockDepth: number;
 
   constructor(
     private readonly scene: THREE.Scene,
@@ -31,6 +34,7 @@ export class RopeAbility {
   ) {
     this.maxLength = options.maxLength ?? DEFAULT_MAX_LENGTH;
     this.visualPoints = options.visualPoints ?? DEFAULT_VISUAL_POINTS;
+    this.floorBlockDepth = options.floorBlockDepth ?? DEFAULT_FLOOR_BLOCK_DEPTH;
   }
 
   start(players: Player[]): void {
@@ -66,7 +70,10 @@ export class RopeAbility {
         continue;
       }
 
-      const sagAmount = path.length === 2 ? Math.max(0, (chain.maxLength - pathLength) * 0.15) : 0;
+      const obstacleBoxes = this.getObstacleBoxes();
+      const sagAmount = chain.pA.isGrounded || chain.pB.isGrounded
+        ? this.getSafeSagAmount(path, pathLength, chain.maxLength, obstacleBoxes)
+        : 0;
       updateVisualLine(chain.visualLine, path, sagAmount);
     }
   }
@@ -199,6 +206,10 @@ export class RopeAbility {
       return [from, to];
     }
 
+    if (isSegmentClear(from, to, obstacleBoxes)) {
+      return [from, to];
+    }
+
     let fromProj = from.clone();
     let toProj = to.clone();
 
@@ -213,7 +224,7 @@ export class RopeAbility {
     }
 
     if (isSegmentClear(fromProj, toProj, obstacleBoxes)) {
-      return [from, to];
+      return buildEndpointPath(from, fromProj, toProj, to, obstacleBoxes);
     }
 
     const nodes = [
@@ -224,19 +235,38 @@ export class RopeAbility {
     const path = findShortestClearPath(nodes, obstacleBoxes);
 
     if (path) {
-      // Replace the projected endpoints back with the original player centers for visual continuity
-      path[0] = from.clone();
-      path[path.length - 1] = to.clone();
-      return path;
+      return buildEndpointPath(from, path[0], path[path.length - 1], to, obstacleBoxes, path.slice(1, -1));
     }
 
-    return [from, to];
+    return [from];
   }
 
   private getObstacleBoxes(): THREE.Box3[] {
     return this.getSurfaces()
       .filter((surface): surface is THREE.Mesh => surface instanceof THREE.Mesh)
-      .map((surface) => new THREE.Box3().setFromObject(surface).expandByScalar(OBSTACLE_MARGIN));
+      .map((surface) => {
+        const box = new THREE.Box3().setFromObject(surface);
+        extendFloorObstacleDownward(box, this.floorBlockDepth);
+        return box.expandByScalar(OBSTACLE_MARGIN);
+      });
+  }
+
+  private getSafeSagAmount(
+    path: THREE.Vector3[],
+    pathLength: number,
+    maxLength: number,
+    obstacleBoxes: THREE.Box3[]
+  ): number {
+    if (path.length !== 2) {
+      return 0;
+    }
+
+    const sagAmount = Math.max(0, (maxLength - pathLength) * 0.15);
+    if (sagAmount <= 0) {
+      return 0;
+    }
+
+    return doesSampledPathHitObstacles(path, sagAmount, obstacleBoxes) ? 0 : sagAmount;
   }
 }
 
@@ -362,6 +392,44 @@ function findShortestClearPath(nodes: THREE.Vector3[], boxes: THREE.Box3[]): THR
   return path.reverse();
 }
 
+function buildEndpointPath(
+  from: THREE.Vector3,
+  fromProjected: THREE.Vector3,
+  toProjected: THREE.Vector3,
+  to: THREE.Vector3,
+  boxes: THREE.Box3[],
+  middle: THREE.Vector3[] = []
+): THREE.Vector3[] {
+  const corePath = removeAdjacentDuplicates([
+    fromProjected.clone(),
+    ...middle.map((point) => point.clone()),
+    toProjected.clone()
+  ]);
+
+  if (!isWholePathClear(corePath, boxes)) {
+    return [from];
+  }
+
+  return removeAdjacentDuplicates([
+    from.clone(),
+    ...corePath,
+    to.clone()
+  ]);
+}
+
+function removeAdjacentDuplicates(path: THREE.Vector3[]): THREE.Vector3[] {
+  return path.filter((point, index) => index === 0 || !point.equals(path[index - 1]));
+}
+
+function isWholePathClear(path: THREE.Vector3[], boxes: THREE.Box3[]): boolean {
+  for (let index = 0; index < path.length - 1; index += 1) {
+    if (!isSegmentClear(path[index], path[index + 1], boxes)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 function isSegmentClear(from: THREE.Vector3, to: THREE.Vector3, boxes: THREE.Box3[]): boolean {
   return boxes.every((box) => !lineIntersectsBox(from, to, box));
 }
@@ -383,6 +451,30 @@ function updateVisualLine(line: THREE.Line, path: THREE.Vector3[], sagAmount: nu
   line.geometry.computeBoundingSphere();
   line.geometry.computeBoundingBox();
   line.visible = true;
+}
+
+function doesSampledPathHitObstacles(path: THREE.Vector3[], sagAmount: number, boxes: THREE.Box3[]): boolean {
+  if (boxes.length === 0 || path.length < 2) {
+    return false;
+  }
+
+  let previous = samplePathWithSag(path, 0, sagAmount);
+  const samples = 12;
+  for (let index = 1; index <= samples; index += 1) {
+    const next = samplePathWithSag(path, index / samples, sagAmount);
+    if (!isSegmentClear(previous, next, boxes)) {
+      return true;
+    }
+    previous = next;
+  }
+
+  return false;
+}
+
+function samplePathWithSag(path: THREE.Vector3[], t: number, sagAmount: number): THREE.Vector3 {
+  const point = samplePath(path, t);
+  point.y -= Math.sin(t * Math.PI) * sagAmount;
+  return point;
 }
 
 function getPlayerRopePoint(player: Player): THREE.Vector3 {
@@ -475,6 +567,22 @@ function lineIntersectsBox(p1: THREE.Vector3, p2: THREE.Vector3, box: THREE.Box3
   return tMax >= epsilon && tMin <= length - epsilon;
 }
 
+function extendFloorObstacleDownward(box: THREE.Box3, depth: number): void {
+  const size = new THREE.Vector3();
+  box.getSize(size);
+
+  const isFloorLike =
+    size.y <= 1.1 &&
+    size.x >= size.y * 1.4 &&
+    size.z >= size.y * 1.4;
+
+  if (!isFloorLike) {
+    return;
+  }
+
+  box.min.y = Math.min(box.min.y, box.max.y - depth);
+}
+
 function offsetAwayFromBox(point: THREE.Vector3, center: THREE.Vector3): THREE.Vector3 {
   const direction = point.clone().sub(center);
   if (direction.lengthSq() <= 0.0001) {
@@ -522,10 +630,15 @@ function projectPointToBoxSurface(p: THREE.Vector3, box: THREE.Box3): THREE.Vect
 
   const dx_min = p.x - min.x;
   const dx_max = max.x - p.x;
-  const dy_min = p.y - min.y;
-  const dy_max = max.y - p.y;
   const dz_min = p.z - min.z;
   const dz_max = max.z - p.z;
+
+  if (isExtendedFloorBlocker(box) && p.y < max.y) {
+    return projectPointToNearestSide(p, box, dx_min, dx_max, dz_min, dz_max);
+  }
+
+  const dy_min = p.y - min.y;
+  const dy_max = max.y - p.y;
 
   const minDist = Math.min(dx_min, dx_max, dy_min, dy_max, dz_min, dz_max);
   const result = p.clone();
@@ -536,6 +649,31 @@ function projectPointToBoxSurface(p: THREE.Vector3, box: THREE.Box3): THREE.Vect
   else if (minDist === dy_max) result.y = max.y;
   else if (minDist === dz_min) result.z = min.z;
   else if (minDist === dz_max) result.z = max.z;
+
+  return result;
+}
+
+function isExtendedFloorBlocker(box: THREE.Box3): boolean {
+  const size = new THREE.Vector3();
+  box.getSize(size);
+  return size.y > DEFAULT_FLOOR_BLOCK_DEPTH * 0.5;
+}
+
+function projectPointToNearestSide(
+  p: THREE.Vector3,
+  box: THREE.Box3,
+  dxMin: number,
+  dxMax: number,
+  dzMin: number,
+  dzMax: number
+): THREE.Vector3 {
+  const minDist = Math.min(dxMin, dxMax, dzMin, dzMax);
+  const result = p.clone();
+
+  if (minDist === dxMin) result.x = box.min.x;
+  else if (minDist === dxMax) result.x = box.max.x;
+  else if (minDist === dzMin) result.z = box.min.z;
+  else result.z = box.max.z;
 
   return result;
 }
