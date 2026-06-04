@@ -115,11 +115,17 @@ export interface Level09StatePayload {
   winnerIndex: number | null;
 }
 
+export interface Level10StatePayload {
+  type: "level-10";
+  sequence: string[];
+}
+
 export type LevelCustomStatePayload =
   | Level04StatePayload
   | Level05StatePayload
   | Level08StatePayload
-  | Level09StatePayload;
+  | Level09StatePayload
+  | Level10StatePayload;
 
 export interface LevelStatePayload {
   roomCode: string;

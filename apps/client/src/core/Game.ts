@@ -38,7 +38,7 @@ export class Game {
   private animationFrame = 0;
   private pendingLevelChange = false;
   private levelLoadRequestId = 0;
-  private levelIniciatation = 8;
+  private levelIniciatation = 9;
 
   constructor(private readonly canvas: HTMLCanvasElement, levelFiles: string[]) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
