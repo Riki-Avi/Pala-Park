@@ -372,6 +372,9 @@ export class Game {
     this.level.prepareReset(this.players);
     for (const [index, player] of this.players.entries()) {
       player.reset(this.level.definition.spawnPoints[index]);
+      if (this.level.definition.id !== "level-11") {
+        player.setGhostMode(false);
+      }
     }
     this.levelAdvanceTimer = -1;
     this.level.resetDynamicObjects();

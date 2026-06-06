@@ -93,6 +93,13 @@ export class Level11Runtime extends LevelRuntime {
     this.scene.remove(this.laser2Mesh);
     this.laser2Mesh.geometry.dispose();
 
+    // Turn off ghost mode for all players
+    for (const player of this.levelPlayers) {
+      if (player) {
+        player.setGhostMode(false);
+      }
+    }
+
     this.levelPlayers = [];
     super.dispose();
   }
