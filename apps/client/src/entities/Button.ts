@@ -44,6 +44,12 @@ export class Button {
     this.mesh.scale.y = this.pressed ? 0.45 : 1;
   }
 
+  reset(): void {
+    this.pressed = false;
+    this.mesh.material = this.normalMaterial;
+    this.mesh.scale.y = 1;
+  }
+
   private contains(position: Vec3, size: Vec3): boolean {
     return (
       Math.abs(position.x - this.definition.position.x) <= size.x / 2 &&

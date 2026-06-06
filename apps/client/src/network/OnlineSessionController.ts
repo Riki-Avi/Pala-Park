@@ -28,6 +28,7 @@ export class OnlineSessionController {
   private lastGoalProgressSentTick = -1;
   private pendingLevelState: LevelStatePayload | null = null;
   private pendingGoalProgress: GoalProgressPayload | null = null;
+  private lastResetAt = 0;
 
   attach(network: ClientSocket, callbacks: OnlineSessionCallbacks): void {
     this.network = network;
@@ -62,6 +63,9 @@ export class OnlineSessionController {
     });
 
     network.onPlayerPose((pose) => {
+      if (Date.now() - this.lastResetAt < 500) {
+        return;
+      }
       if (pose.playerId !== this.session?.playerId) {
         this.remotePlayerInterpolator.push(pose);
       }
@@ -84,6 +88,7 @@ export class OnlineSessionController {
       this.pendingLevelState = null;
       this.pendingGoalProgress = null;
       this.remotePlayerInterpolator.clear();
+      this.lastResetAt = Date.now();
       callbacks.onLevelReset(`Nivel reiniciado por ${payload.byPlayerId}`);
     });
 

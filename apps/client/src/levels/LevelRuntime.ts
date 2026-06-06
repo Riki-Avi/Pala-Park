@@ -167,6 +167,12 @@ export class LevelRuntime {
     for (const box of this.boxes) {
       box.reset();
     }
+    for (const button of this.buttons) {
+      button.reset();
+    }
+    for (const door of this.doors) {
+      door.setOpen(false);
+    }
   }
 
   onLevelStart(players: Player[]): void {
