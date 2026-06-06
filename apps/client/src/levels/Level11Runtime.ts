@@ -93,18 +93,6 @@ export class Level11Runtime extends LevelRuntime {
     this.scene.remove(this.laser2Mesh);
     this.laser2Mesh.geometry.dispose();
 
-    // Remove laser bodies
-    const laser1Phys = this.physicsObjects.find((p) => p.id === "laser1");
-    if (laser1Phys) {
-      this.world.removeCollider(laser1Phys.collider, true);
-      this.world.removeRigidBody(laser1Phys.body);
-    }
-    const laser2Phys = this.physicsObjects.find((p) => p.id === "laser2");
-    if (laser2Phys) {
-      this.world.removeCollider(laser2Phys.collider, true);
-      this.world.removeRigidBody(laser2Phys.body);
-    }
-
     this.levelPlayers = [];
     super.dispose();
   }
