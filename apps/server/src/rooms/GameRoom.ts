@@ -19,7 +19,7 @@ export class GameRoom {
   tick = 0;
   hostPlayerId = "p1";
   levelIndex = 0;
-  private readonly requiredPlayers = 2;
+  private readonly requiredPlayers = 4;
 
   constructor(readonly roomCode: string) {}
 
