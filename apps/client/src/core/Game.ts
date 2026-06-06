@@ -39,7 +39,7 @@ export class Game {
   private animationFrame = 0;
   private pendingLevelChange = false;
   private levelLoadRequestId = 0;
-  private levelIniciatation = 10;
+  private levelIniciatation = 0;
 
   constructor(private readonly canvas: HTMLCanvasElement, levelFiles: string[]) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -165,7 +165,11 @@ export class Game {
 
     if (this.input.consumeResetPressed()) {
       if (this.online.isOnline) {
-        this.online.requestReset("manual");
+        if (this.online.isHost) {
+          this.online.requestReset("manual");
+        } else {
+          document.querySelector("#objective")!.textContent = "Solo el creador de la sala puede reiniciar";
+        }
       } else {
         this.resetLevel();
       }

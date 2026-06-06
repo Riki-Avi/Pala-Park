@@ -221,6 +221,10 @@ async function bootstrap(): Promise<void> {
         return;
       }
 
+      if (reason === "manual" && playerId !== room.hostPlayerId) {
+        return;
+      }
+
       if (!room.canReset(Date.now())) {
         return;
       }

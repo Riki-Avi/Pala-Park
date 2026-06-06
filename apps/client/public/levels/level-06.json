@@ -45,7 +45,7 @@
       "id": "goal",
       "position": { "x": 18.0, "y": 8.25, "z": 0.0 },
       "size": { "x": 3.5, "y": 1.6, "z": 3.5 },
-      "requiredPlayers": 2
+      "requiredPlayers": "all"
     }
   ]
 }
