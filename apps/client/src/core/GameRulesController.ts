@@ -11,6 +11,10 @@ interface GoalUpdateResult {
 export class GameRulesController {
   updateGrounding(players: Player[], level: LevelRuntime): void {
     for (const [index, player] of players.entries()) {
+      if (player.isGhost) {
+        player.setGrounded(false);
+        continue;
+      }
       const position = player.body.translation();
       player.setGrounded(this.hasGroundBelow(position, index, players, level));
     }
@@ -21,6 +25,9 @@ export class GameRulesController {
       for (let secondIndex = firstIndex + 1; secondIndex < players.length; secondIndex += 1) {
         const first = players[firstIndex];
         const second = players[secondIndex];
+        if (first.isGhost || second.isGhost) {
+          continue;
+        }
         const firstPosition = first.body.translation();
         const secondPosition = second.body.translation();
         const horizontalDistance = Math.hypot(
@@ -65,7 +72,7 @@ export class GameRulesController {
 
     if (options.isOnline) {
       const localPlayer = players[options.activePlayerIndex];
-      if (localPlayer.body.translation().y < deathThreshold) {
+      if (!localPlayer.isGhost && localPlayer.body.translation().y < deathThreshold) {
         options.requestOnlineReset();
       }
       return;
@@ -73,7 +80,7 @@ export class GameRulesController {
 
     let anyFallen = false;
     for (const player of players) {
-      if (player.body.translation().y < deathThreshold) {
+      if (!player.isGhost && player.body.translation().y < deathThreshold) {
         anyFallen = true;
         break;
       }
@@ -100,6 +107,10 @@ export class GameRulesController {
     const goal = level.goalZones[0];
     const playerPositions = this.getPlayerPositions(players);
     for (const [index, player] of players.entries()) {
+      if (player.isGhost) {
+        player.inGoal = false;
+        continue;
+      }
       player.inGoal = goal.contains(playerPositions[index]);
     }
 

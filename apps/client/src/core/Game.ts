@@ -12,6 +12,7 @@ import { Player } from "../entities/Player";
 import { InputManager } from "../input/InputManager";
 import { createEmptyInput } from "../input/InputState";
 import { LevelController } from "../levels/LevelController";
+import { Level11Runtime } from "../levels/Level11Runtime";
 import { ClientSocket } from "../network/ClientSocket";
 import { OnlineSessionController } from "../network/OnlineSessionController";
 import { PhysicsWorld } from "../physics/PhysicsWorld";
@@ -38,7 +39,7 @@ export class Game {
   private animationFrame = 0;
   private pendingLevelChange = false;
   private levelLoadRequestId = 0;
-  private levelIniciatation = 9;
+  private levelIniciatation = 10;
 
   constructor(private readonly canvas: HTMLCanvasElement, levelFiles: string[]) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -59,6 +60,8 @@ export class Game {
     ]);
     this.input.enablePointerLook(this.canvas);
     this.setupSensitivityControl();
+    this.setupGhostSelectControl();
+    this.setupBlindnessToggleControl();
     this.resize();
 
     window.addEventListener("resize", this.resize);
@@ -420,6 +423,27 @@ export class Game {
     this.pendingLevelChange = false;
     this.resetLevel();
     this.updateLevelText();
+
+    const levelId = this.levelController.currentDefinition.id;
+    const ghostContainer = document.querySelector<HTMLDivElement>("#ghost-select-container");
+    const ghostSelect = document.querySelector<HTMLSelectElement>("#ghost-select");
+    const blindnessContainer = document.querySelector<HTMLDivElement>("#blindness-toggle-container");
+    const blindnessToggle = document.querySelector<HTMLInputElement>("#blindness-toggle");
+    if (ghostContainer && ghostSelect && blindnessContainer && blindnessToggle) {
+      if (levelId === "level-11") {
+        ghostContainer.style.display = "inline-flex";
+        ghostSelect.disabled = this.online.isOnline && !this.online.isHost;
+        ghostSelect.value = "0";
+
+        blindnessContainer.style.display = "inline-flex";
+        blindnessToggle.disabled = this.online.isOnline && !this.online.isHost;
+        blindnessToggle.checked = false;
+      } else {
+        ghostContainer.style.display = "none";
+        blindnessContainer.style.display = "none";
+      }
+    }
+
     return true;
   }
 
@@ -457,6 +481,34 @@ export class Game {
     slider.value = String(this.input.getSensitivity() * 1000);
     slider.addEventListener("input", () => {
       this.input.setSensitivity(Number(slider.value) / 1000);
+    });
+  }
+
+  private setupGhostSelectControl(): void {
+    const ghostSelect = document.querySelector<HTMLSelectElement>("#ghost-select");
+    if (!ghostSelect) {
+      return;
+    }
+
+    ghostSelect.addEventListener("change", () => {
+      const val = Number(ghostSelect.value);
+      if (this.level && this.level.definition.id === "level-11") {
+        (this.level as Level11Runtime).setGhostPlayerIndex(val);
+      }
+    });
+  }
+
+  private setupBlindnessToggleControl(): void {
+    const blindnessToggle = document.querySelector<HTMLInputElement>("#blindness-toggle");
+    if (!blindnessToggle) {
+      return;
+    }
+
+    blindnessToggle.addEventListener("change", () => {
+      const val = blindnessToggle.checked;
+      if (this.level && this.level.definition.id === "level-11") {
+        (this.level as Level11Runtime).setDisableBlindness(val);
+      }
     });
   }
 

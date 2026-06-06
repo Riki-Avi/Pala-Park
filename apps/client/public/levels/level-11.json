@@ -1,0 +1,39 @@
+{
+  "id": "level-11",
+  "name": "Diseño Nivel 11",
+  "objective": "El guía (Azul) debe guiar a los jugadores ciegos a través del laberinto.",
+  "rules": {
+    "resetOnAnyPlayerFall": true,
+    "respawnBoxesFromSky": false,
+    "autoAdvanceOnComplete": true
+  },
+  "spawnPoints": [
+    { "x": -10.0, "y": 10.8, "z": -10.0 },
+    { "x": -10.0, "y": 0.8, "z": -7.0 },
+    { "x": -7.0, "y": 0.8, "z": -10.0 },
+    { "x": -7.0, "y": 0.8, "z": -7.0 }
+  ],
+  "platforms": [
+    {
+      "id": "starter-floor",
+      "position": { "x": -10.0, "y": 0.0, "z": -10.0 },
+      "size": { "x": 12.0, "y": 0.6, "z": 12.0 }
+    },
+    {
+      "id": "guide-tower",
+      "position": { "x": -10.0, "y": 5.0, "z": -10.0 },
+      "size": { "x": 3.0, "y": 10.0, "z": 3.0 }
+    }
+  ],
+  "boxes": [],
+  "buttons": [],
+  "doors": [],
+  "goalZones": [
+    {
+      "id": "goal",
+      "position": { "x": 45.0, "y": 1.05, "z": 12.0 },
+      "size": { "x": 4.0, "y": 1.5, "z": 4.0 },
+      "requiredPlayers": 3
+    }
+  ]
+}

@@ -8,7 +8,8 @@ const playerOne: PlayerKeyMap = {
   forward: ["KeyW"],
   backward: ["KeyS"],
   jump: ["Space"],
-  interact: ["KeyE", "MouseLeft"]
+  interact: ["KeyE", "MouseLeft"],
+  down: ["ShiftLeft", "KeyQ"]
 };
 
 const playerTwo: PlayerKeyMap = {
@@ -17,7 +18,8 @@ const playerTwo: PlayerKeyMap = {
   forward: ["ArrowUp"],
   backward: ["ArrowDown"],
   jump: ["ShiftRight", "Enter"],
-  interact: ["Slash", "MouseLeft"]
+  interact: ["Slash", "MouseLeft"],
+  down: ["ControlRight", "KeyQ"]
 };
 
 export class InputManager {

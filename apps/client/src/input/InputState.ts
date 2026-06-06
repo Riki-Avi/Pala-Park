@@ -5,6 +5,7 @@ export interface LocalInputState {
   backward: boolean;
   jump: boolean;
   interact: boolean;
+  down: boolean;
 }
 
 export function createEmptyInput(): LocalInputState {
@@ -14,6 +15,7 @@ export function createEmptyInput(): LocalInputState {
     forward: false,
     backward: false,
     jump: false,
-    interact: false
+    interact: false,
+    down: false
   };
 }

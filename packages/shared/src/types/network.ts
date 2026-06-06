@@ -120,12 +120,20 @@ export interface Level10StatePayload {
   sequence: string[];
 }
 
+export interface Level11StatePayload {
+  type: "level-11";
+  stage: number;
+  ghostIndex?: number;
+  disableBlindness?: boolean;
+}
+
 export type LevelCustomStatePayload =
   | Level04StatePayload
   | Level05StatePayload
   | Level08StatePayload
   | Level09StatePayload
-  | Level10StatePayload;
+  | Level10StatePayload
+  | Level11StatePayload;
 
 export interface LevelStatePayload {
   roomCode: string;

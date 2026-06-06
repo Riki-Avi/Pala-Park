@@ -51,6 +51,19 @@ async function bootstrap(): Promise<void> {
           Mouse
           <input id="mouse-sensitivity" type="range" min="0.8" max="6" step="0.1" value="2.4" />
         </label>
+        <label id="ghost-select-container" class="sensitivity" style="display: none;">
+          Rol Fantasma:
+          <select id="ghost-select" style="background: rgb(255 255 255 / 8%); color: #f6f7fb; border: 1px solid rgb(255 255 255 / 16%); border-radius: 6px; padding: 2px 4px; font-family: inherit; font-size: inherit; cursor: pointer;">
+            <option value="0">Azul (P1)</option>
+            <option value="1">Amarillo (P2)</option>
+            <option value="2">Verde (P3)</option>
+            <option value="3">Violeta (P4)</option>
+          </select>
+        </label>
+        <label id="blindness-toggle-container" class="sensitivity" style="display: none;">
+          <input id="blindness-toggle" type="checkbox" style="cursor: pointer; margin-right: 6px;" />
+          Ver todo (Sin ceguera)
+        </label>
         <span>R reinicia</span>
       </section>
     </main>

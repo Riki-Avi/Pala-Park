@@ -20,6 +20,7 @@ export interface PlayerInput {
   backward: boolean;
   jump: boolean;
   interact: boolean;
+  down?: boolean;
 }
 
 export interface PlayerSnapshot {

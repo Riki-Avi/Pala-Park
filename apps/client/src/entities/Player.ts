@@ -17,12 +17,14 @@ import { AudioManager } from "../core/AudioManager";
 export class Player implements NetworkedEntity<PlayerSnapshot> {
   readonly mesh: THREE.Group;
   readonly body: RAPIER.RigidBody;
+  readonly collider: RAPIER.Collider;
   isGrounded = false;
   inGoal = false;
   isActionActive = false;
   lastProcessedInput = 0;
   lookYaw = 0;
   lookPitch = 0;
+  isGhost = false;
   private visualYaw = 0;
   private coyoteTimer = 0;
   private jumpBufferTimer = 0;
@@ -50,11 +52,74 @@ export class Player implements NetworkedEntity<PlayerSnapshot> {
     )
       .setFriction(0)
       .setFrictionCombineRule(RAPIER.CoefficientCombineRule.Min);
-    world.createCollider(collider, this.body);
+    this.collider = world.createCollider(collider, this.body);
+  }
+
+  setGhostMode(enabled: boolean): void {
+    this.isGhost = enabled;
+    this.body.setGravityScale(enabled ? 0.0 : 1.0, true);
+    this.collider.setSensor(enabled);
+    if (!enabled) {
+      this.body.setLinvel({ x: 0, y: 0, z: 0 }, true);
+    }
   }
 
   applyInput(input: LocalInputState, yaw = 0, pitch = 0, cameraRelative = false, delta = 1 / 60): void {
     this.isActionActive = input.interact;
+
+    if (this.isGhost) {
+      let x = 0;
+      let z = 0;
+      let y = 0;
+
+      if (input.left) x -= 1;
+      if (input.right) x += 1;
+      if (input.forward) z -= 1;
+      if (input.backward) z += 1;
+      if (input.jump) y += 1;
+      if (input.down) y -= 1;
+
+      const length = Math.hypot(x, y, z) || 1;
+      const normalizedX = x / length;
+      const normalizedY = y / length;
+      const normalizedZ = z / length;
+
+      let targetVelX = 0;
+      let targetVelY = 0;
+      let targetVelZ = 0;
+
+      if (cameraRelative) {
+        this.lookYaw = yaw;
+        this.lookPitch = pitch;
+        this.visualYaw = yaw;
+
+        const forwardX = -Math.sin(yaw) * Math.cos(pitch);
+        const forwardY = Math.sin(pitch);
+        const forwardZ = -Math.cos(yaw) * Math.cos(pitch);
+
+        const rightX = Math.cos(yaw);
+        const rightZ = -Math.sin(yaw);
+
+        targetVelX = (forwardX * -normalizedZ + rightX * normalizedX) * PLAYER_SPEED * 1.5;
+        targetVelY = (forwardY * -normalizedZ + normalizedY) * PLAYER_SPEED * 1.5;
+        targetVelZ = (forwardZ * -normalizedZ + rightZ * normalizedX) * PLAYER_SPEED * 1.5;
+      } else {
+        targetVelX = normalizedX * PLAYER_SPEED * 1.5;
+        targetVelY = normalizedY * PLAYER_SPEED * 1.5;
+        targetVelZ = normalizedZ * PLAYER_SPEED * 1.5;
+      }
+
+      const control = 0.25;
+      const currentVelocity = this.body.linvel();
+      const nextX = currentVelocity.x + (targetVelX - currentVelocity.x) * control;
+      const nextY = currentVelocity.y + (targetVelY - currentVelocity.y) * control;
+      const nextZ = currentVelocity.z + (targetVelZ - currentVelocity.z) * control;
+
+      this.body.setLinvel({ x: nextX, y: nextY, z: nextZ }, true);
+      this.isGrounded = false;
+      return;
+    }
+
     const velocity = this.body.linvel();
     let x = 0;
     let z = 0;
